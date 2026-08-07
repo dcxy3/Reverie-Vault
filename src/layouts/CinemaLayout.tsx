@@ -137,6 +137,18 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
                     className="collection-poster-card"
                     aria-label={game.title}
                     onContextMenu={(e) => openContextMenu(e, game)}
+                    onMouseMove={(event) => {
+                      const card = event.currentTarget;
+                      const bounds = card.getBoundingClientRect();
+                      const offsetX = (event.clientX - bounds.left) / bounds.width - 0.5;
+                      const offsetY = (event.clientY - bounds.top) / bounds.height - 0.5;
+                      card.style.setProperty("--tilt-x", `${-offsetY * 60}deg`);
+                      card.style.setProperty("--tilt-y", `${offsetX * 60}deg`);
+                    }}
+                    onMouseLeave={(event) => {
+                      event.currentTarget.style.removeProperty("--tilt-x");
+                      event.currentTarget.style.removeProperty("--tilt-y");
+                    }}
                     onClick={() => {
                       setSelectedId(game.id);
                       setStatusFilter("全部");

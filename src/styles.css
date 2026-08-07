@@ -986,6 +986,8 @@ button {
 }
 
 .collection-poster-card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
   display: grid;
   gap: 8px;
   min-width: 0;
@@ -994,7 +996,10 @@ button {
   color: var(--text-primary);
   background: transparent;
   text-align: left;
-  transition: transform var(--duration-fast) var(--ease-out);
+  transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 100ms var(--ease-out);
 }
 
 .collection-poster-card:active {
@@ -1002,7 +1007,8 @@ button {
 }
 
 .collection-poster-card:hover {
-  transform: translateY(-3px);
+  z-index: 2;
+  transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateY(-10px) scale(1.06);
 }
 
 .collection-poster-art {
@@ -1024,7 +1030,7 @@ button {
 
 .collection-poster-card:hover .collection-poster-art {
   filter: brightness(0.98) saturate(0.96);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.44), 0 0 0 2px var(--accent-color);
+  box-shadow: 0 28px 38px -14px rgba(0, 0, 0, 0.72), 0 0 0 2px var(--accent-color);
 }
 
 .collection-poster-art img {
