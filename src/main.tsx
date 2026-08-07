@@ -10,22 +10,11 @@ import {
   X
 } from "lucide-react";
 import type { CoverCandidate, GameStatus, MetadataCandidate } from "./types";
-import { themePresets, defaultTheme } from "./theme";
 import { statuses } from "./utils";
 import { useLibrary } from "./useLibrary";
 import { SideSheet } from "./components/SideSheet";
 import { CinemaLayout } from "./layouts/CinemaLayout";
-import { EditorialLayout } from "./layouts/EditorialLayout";
-import { ArcadeLayout } from "./layouts/ArcadeLayout";
-import { AtelierLayout } from "./layouts/AtelierLayout";
-import { AuroraLayout } from "./layouts/AuroraLayout";
-import { MonoLuxLayout } from "./layouts/MonoLuxLayout";
 import "./styles.css";
-import "./themes/editorial.css";
-import "./themes/arcade.css";
-import "./themes/atelier.css";
-import "./themes/aurora.css";
-import "./themes/monolux.css";
 
 const sourceColors: Record<string, string> = {
   "Steam": "#1a9fff",
@@ -40,14 +29,7 @@ const sourceColors: Record<string, string> = {
   "Bangumi": "#f44336"
 };
 
-const layouts: Partial<Record<string, typeof CinemaLayout>> = {
-  cinema: CinemaLayout,
-  editorial: EditorialLayout,
-  arcade: ArcadeLayout,
-  atelier: AtelierLayout,
-  aurora: AuroraLayout,
-  monolux: MonoLuxLayout
-};
+const cinemaFontHref = "https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap";
 
 function App() {
   const lib = useLibrary();
@@ -55,8 +37,6 @@ function App() {
     statusFilter,
     isEditing,
     isInfoOpen, setIsInfoOpen,
-    isThemeOpen, setIsThemeOpen,
-    theme, setTheme,
     draft, setDraft,
     notice, setNotice,
     imageCache,
@@ -89,7 +69,7 @@ function App() {
   } = lib;
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme.id);
+    document.documentElement.setAttribute("data-theme", "cinema");
     const linkId = "theme-font";
     let link = document.getElementById(linkId) as HTMLLinkElement | null;
     if (!link) {
@@ -98,14 +78,12 @@ function App() {
       link.rel = "stylesheet";
       document.head.appendChild(link);
     }
-    link.href = theme.fontHref;
-  }, [theme]);
-
-  const Layout = layouts[theme.id] ?? CinemaLayout;
+    link.href = cinemaFontHref;
+  }, []);
 
   return (
     <div className={`app-shell ${usesCoverFallback ? "cover-fallback-mode" : "keyvisual-mode"} ${isInfoOpen ? "info-open" : ""}`}>
-      <Layout lib={lib} />
+      <CinemaLayout lib={lib} />
 
       <SideSheet
         game={selected}
@@ -289,36 +267,6 @@ function App() {
             <button className="ctx-danger" onClick={() => { deleteGame(ctxMenu.game); closeContextMenu(); }}><Trash2 size={16} /> 删除</button>
           </div>
         </>
-      )}
-
-      {isThemeOpen && (
-        <div className="modal-backdrop">
-          <section className="modal theme-modal">
-            <div className="modal-header">
-              <h2>主题设置</h2>
-              <button className="icon-button" onClick={() => setIsThemeOpen(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <div className="theme-presets">
-              {themePresets.map((preset) => (
-                <button
-                  key={preset.id}
-                  className={`theme-card ${theme.id === preset.id ? "active" : ""}`}
-                  onClick={() => setTheme(preset)}
-                >
-                  <span className={`theme-preview theme-preview-${preset.id}`} />
-                  <strong>{preset.name}</strong>
-                  <small>{preset.description}</small>
-                </button>
-              ))}
-            </div>
-            <div className="modal-actions">
-              <button className="soft-button" onClick={() => setTheme(defaultTheme)}>恢复默认</button>
-              <button className="play-button" onClick={() => setIsThemeOpen(false)}>完成</button>
-            </div>
-          </section>
-        </div>
       )}
 
       {notice && (

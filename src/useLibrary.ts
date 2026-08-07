@@ -8,8 +8,6 @@ import type {
   PickedLaunchFile,
   PlaySessionEndedEvent
 } from "./types";
-import type { ThemeDefinition } from "./theme";
-import { loadThemeSettings } from "./theme";
 import { statuses, nowIso, makeGame, formatPlayTime, getTotalPlaySeconds } from "./utils";
 
 export function useLibrary() {
@@ -20,8 +18,6 @@ export function useLibrary() {
   const [viewMode, setViewMode] = useState<"library" | "collection">("library");
   const [isEditing, setIsEditing] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
-  const [isThemeOpen, setIsThemeOpen] = useState(false);
-  const [theme, setTheme] = useState<ThemeDefinition>(() => loadThemeSettings());
   const [draft, setDraft] = useState<Game | null>(null);
   const [notice, setNotice] = useState("");
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
@@ -66,18 +62,13 @@ export function useLibrary() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
-      if (isThemeOpen) { setIsThemeOpen(false); return; }
       if (isCoverPickerOpen) { setIsCoverPickerOpen(false); return; }
       if (isCandidatePickerOpen) { setIsCandidatePickerOpen(false); return; }
       if (isEditing) { closeEdit(); return; }
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [isThemeOpen, isCoverPickerOpen, isCandidatePickerOpen, isEditing]);
-
-  useEffect(() => {
-    localStorage.setItem("gal-launcher-theme", JSON.stringify({ id: theme.id }));
-  }, [theme]);
+  }, [isCoverPickerOpen, isCandidatePickerOpen, isEditing]);
 
   useEffect(() => {
     return window.galLauncher.onPlaySessionEnded((event: PlaySessionEndedEvent) => {
@@ -495,8 +486,6 @@ export function useLibrary() {
     viewMode, setViewMode,
     isEditing,
     isInfoOpen, setIsInfoOpen,
-    isThemeOpen, setIsThemeOpen,
-    theme, setTheme,
     draft, setDraft,
     notice, setNotice,
     imageCache,

@@ -20,7 +20,6 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
     statusFilter, setStatusFilter,
     viewMode, setViewMode,
     setIsInfoOpen,
-    setIsThemeOpen,
     imageCache,
     tagFilter, setTagFilter,
     shelfRef,
@@ -71,9 +70,6 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
         </button>
         <button className="rail-button" aria-label="恢复备份" onClick={importBackup}>
           <Upload size={19} />
-        </button>
-        <button className="rail-button" aria-label="主题设置" onClick={() => setIsThemeOpen(true)}>
-          <SlidersHorizontal size={19} />
         </button>
         <button className="rail-button add" aria-label="添加游戏" onClick={addGame}>
           <Plus size={20} />
