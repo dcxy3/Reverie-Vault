@@ -80,7 +80,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
         </button>
       </aside>
 
-      <main className="stage" style={viewMode !== "library" ? { gridTemplateRows: "60px minmax(0, 1fr)" } as React.CSSProperties : undefined}>
+      <main className="stage cinema-stage" style={viewMode !== "library" ? { gridTemplateRows: "60px minmax(0, 1fr)" } as React.CSSProperties : undefined}>
         <header className="stage-top">
           <div className="search-pill">
             <Search size={18} />
@@ -165,6 +165,32 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
             <div className="showcase-art">
               {!selectedImage && <Gamepad2 size={72} />}
               <div className="showcase-glow" />
+              <section className="shelf">
+                <div className="shelf-title">
+                  <span className="accent-dot" />
+                  <h2>{statusFilter === "全部" ? "Galgame" : statusFilter}</h2>
+                  <span>{filteredGames.length} 部</span>
+                </div>
+
+                <div
+                  className="cover-row"
+                  ref={shelfRef}
+                  onWheel={(event) => {
+                    const element = shelfRef.current;
+                    if (!element) return;
+                    element.scrollLeft += event.deltaY || event.deltaX;
+                  }}
+                >
+                  {filteredGames.map((game, index) => (
+                    <button key={game.id} className={`shelf-card ${game.id === selected?.id ? "active" : ""}`} style={{ '--i': index } as React.CSSProperties} onClick={() => setSelectedId(game.id)} onContextMenu={(e) => openContextMenu(e, game)} aria-label={game.title}>
+                      <div className="shelf-cover">
+                        {imageCache[game.coverPath] ? <img src={imageCache[game.coverPath]} alt="" /> : <Gamepad2 size={30} />}
+                        <span>{game.title}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
               <div className="showcase-overlay">
                 <p>{selected.developer || "Visual Novel"}</p>
                 <h1>{selected.title}</h1>
@@ -190,32 +216,6 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
           </section>
         )}
 
-        {viewMode === "library" && <section className="shelf">
-          <div className="shelf-title">
-            <span className="accent-dot" />
-            <h2>{statusFilter === "全部" ? "Galgame" : statusFilter}</h2>
-            <span>{filteredGames.length} 部</span>
-          </div>
-
-          <div
-            className="cover-row"
-            ref={shelfRef}
-            onWheel={(event) => {
-              const element = shelfRef.current;
-              if (!element) return;
-              element.scrollLeft += event.deltaY || event.deltaX;
-            }}
-          >
-            {filteredGames.map((game, index) => (
-              <button key={game.id} className={`shelf-card ${game.id === selected?.id ? "active" : ""}`} style={{ '--i': index } as React.CSSProperties} onClick={() => setSelectedId(game.id)} onContextMenu={(e) => openContextMenu(e, game)} aria-label={game.title}>
-                <div className="shelf-cover">
-                  {imageCache[game.coverPath] ? <img src={imageCache[game.coverPath]} alt="" /> : <Gamepad2 size={30} />}
-                  <span>{game.title}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        </section>}
       </main>
     </>
   );

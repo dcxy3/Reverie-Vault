@@ -318,6 +318,11 @@ button {
   transition: opacity var(--duration-normal) var(--ease-out);
 }
 
+/* Cinema keeps the cover row inside the hero, above the title block. */
+.cinema-stage {
+  grid-template-rows: 60px minmax(0, 1fr);
+}
+
 /* --- Continue Playing & Tag Chips --- */
 .recent-row {
   display: flex;
@@ -761,6 +766,28 @@ button {
 
 .shelf-card strong {
   display: none;
+}
+
+.cinema-stage .shelf {
+  position: absolute;
+  top: 8px;
+  left: clamp(20px, 3vw, 56px);
+  right: 0;
+  z-index: 3;
+  padding: 0;
+}
+
+.cinema-stage .cover-row {
+  max-width: min(440px, calc(100vw - var(--rail-width) - 72px));
+  padding-top: 8px;
+}
+
+.cinema-stage .showcase-overlay {
+  bottom: calc(var(--shelf-height) + clamp(24px, 5vh, 64px));
+}
+
+.cinema-stage .floating-play {
+  bottom: calc(var(--shelf-height) + clamp(44px, 10vh, 100px));
 }
 
 /* ================================================
