@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  Clock3,
   Download,
   Gamepad2,
   Home,
@@ -62,9 +61,6 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
         </button>
         <button className={viewMode === "collection" ? "rail-button active" : "rail-button"} aria-label="收藏展示柜" onClick={() => { setViewMode("collection"); setStatusFilter("全部"); }}>
           <Library size={20} />
-        </button>
-        <button className={viewMode === "library" && statusFilter === "进行中" ? "rail-button active" : "rail-button"} aria-label="进行中" onClick={() => { setViewMode("library"); setStatusFilter("进行中"); }}>
-          <Clock3 size={20} />
         </button>
         <button className="rail-button" aria-label="导出备份" onClick={exportBackup}>
           <Download size={19} />
