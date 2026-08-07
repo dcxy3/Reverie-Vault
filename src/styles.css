@@ -782,10 +782,6 @@ button {
   padding-top: 8px;
 }
 
-.cinema-stage .showcase-overlay {
-  bottom: calc(var(--shelf-height) + clamp(24px, 5vh, 64px));
-}
-
 .cinema-stage .floating-play {
   bottom: calc(var(--shelf-height) + clamp(44px, 10vh, 100px));
 }
