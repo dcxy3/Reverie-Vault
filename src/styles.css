@@ -815,10 +815,6 @@ button {
   padding-top: 8px;
 }
 
-.cinema-stage .floating-play {
-  bottom: calc(var(--shelf-height) + clamp(44px, 10vh, 100px));
-}
-
 /* ================================================
    COLLECTION VIEW (Steam-like wall)
    ================================================ */
