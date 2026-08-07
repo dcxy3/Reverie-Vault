@@ -12,6 +12,67 @@ import type { ThemeDefinition } from "./theme";
 import { loadThemeSettings } from "./theme";
 import { statuses, nowIso, makeGame, formatPlayTime, getTotalPlaySeconds } from "./utils";
 
+type AdaptivePalette = { actionRgb: string; chromeRgb: string };
+
+function sampleDisplayedImagePalette(imageSource: string): Promise<AdaptivePalette> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    if (/^https?:\/\//i.test(imageSource)) image.crossOrigin = "anonymous";
+    image.decoding = "async";
+    image.onload = () => {
+      try {
+        const sourceWidth = image.naturalWidth;
+        const sourceHeight = image.naturalHeight;
+        if (!sourceWidth || !sourceHeight) throw new Error("图片尺寸无效");
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 128;
+        canvas.height = 72;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) throw new Error("无法创建取色画布");
+
+        const sampleTop = Math.floor(sourceHeight * 0.58);
+        context.drawImage(
+          image,
+          0,
+          sampleTop,
+          sourceWidth,
+          sourceHeight - sampleTop,
+          0,
+          0,
+          canvas.width,
+          canvas.height
+        );
+
+        const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
+        let red = 0;
+        let green = 0;
+        let blue = 0;
+        let weight = 0;
+        for (let offset = 0; offset < pixels.length; offset += 4) {
+          const alpha = pixels[offset + 3] / 255;
+          if (alpha < 0.12) continue;
+          red += pixels[offset] * alpha;
+          green += pixels[offset + 1] * alpha;
+          blue += pixels[offset + 2] * alpha;
+          weight += alpha;
+        }
+        if (!weight) throw new Error("图片没有可取样像素");
+
+        const complement = [red, green, blue].map((value) =>
+          Math.max(34, Math.min(224, Math.round(255 - value / weight)))
+        );
+        const chrome = complement.map((value) => Math.max(24, Math.round(value * 0.54)));
+        resolve({ actionRgb: complement.join(", "), chromeRgb: chrome.join(", ") });
+      } catch (error) {
+        reject(error);
+      }
+    };
+    image.onerror = () => reject(new Error("横版图加载失败"));
+    image.src = imageSource;
+  });
+}
+
 export function useLibrary() {
   const [games, setGames] = useState<Game[]>([]);
   const [selectedId, setSelectedId] = useState("");
@@ -150,23 +211,32 @@ export function useLibrary() {
       root.style.removeProperty("--adaptive-action-rgb");
       root.style.removeProperty("--adaptive-chrome-rgb");
     };
-    if (!selectedAssetPath) {
+    if (!selectedImage || !selectedAssetPath) {
       resetPalette();
       return;
     }
 
-    window.galLauncher.sampleButtonPalette(selectedAssetPath).then((palette) => {
-      if (cancelled || !palette) return;
+    const updatePalette = async () => {
+      let palette: AdaptivePalette | null = null;
+      try {
+        palette = await sampleDisplayedImagePalette(selectedImage);
+      } catch {
+        palette = await window.galLauncher.sampleButtonPalette(selectedAssetPath).catch(() => null);
+      }
+      if (cancelled) return;
+      if (!palette) {
+        resetPalette();
+        return;
+      }
       root.style.setProperty("--adaptive-action-rgb", palette.actionRgb);
       root.style.setProperty("--adaptive-chrome-rgb", palette.chromeRgb);
-    }).catch(() => {
-      if (!cancelled) resetPalette();
-    });
+    };
+    void updatePalette();
 
     return () => {
       cancelled = true;
     };
-  }, [selectedAssetPath]);
+  }, [selectedAssetPath, selectedImage]);
 
   useEffect(() => {
     if (selectedImage && selectedImage !== prevImage && prevImage !== null) {
