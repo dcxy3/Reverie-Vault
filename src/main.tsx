@@ -84,7 +84,14 @@ function App() {
   return (
     <div className={`app-shell ${usesCoverFallback ? "cover-fallback-mode" : "keyvisual-mode"} ${isInfoOpen ? "info-open" : ""}`}>
       <CinemaLayout lib={lib} />
-      {isInfoOpen && <div className="sheet-scrim" aria-hidden="true" />}
+      {isInfoOpen && (
+        <button
+          type="button"
+          className="sheet-scrim"
+          aria-label="关闭游戏资料"
+          onClick={() => setIsInfoOpen(false)}
+        />
+      )}
 
       <SideSheet
         game={selected}
