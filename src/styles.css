@@ -199,6 +199,13 @@ button {
 }
 
 /* --- Side Rail --- */
+.rail-reveal {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 7;
+  width: 18px;
+}
+
 .rail {
   position: fixed;
   left: 0;
@@ -214,8 +221,17 @@ button {
   background: linear-gradient(90deg, rgba(var(--adaptive-chrome-rgb), 0.46) 0%, rgba(var(--adaptive-chrome-rgb), 0.2) 70%, transparent 100%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  transition: background var(--duration-normal) var(--ease-out),
+  transform: translateX(-100%);
+  will-change: transform;
+  transition: transform 300ms var(--ease-out),
+              background var(--duration-normal) var(--ease-out),
               backdrop-filter var(--duration-normal) var(--ease-out);
+}
+
+.rail-reveal:hover + .rail,
+.rail:hover,
+.rail:focus-within {
+  transform: translateX(0);
 }
 
 .rail:hover {

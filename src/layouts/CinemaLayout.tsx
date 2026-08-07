@@ -52,6 +52,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
       {fadingImage && <div className="backdrop fading" style={{ backgroundImage: `url("${fadingImage}")` }} />}
       <div className="backdrop-mask" />
 
+      <div className="rail-reveal" aria-hidden="true" />
       <aside className="rail">
         <div className="rail-logo">
           <Gamepad2 size={24} />
