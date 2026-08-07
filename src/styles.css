@@ -735,7 +735,7 @@ button {
   border: 1px solid rgba(200, 215, 235, 0.1);
   border-radius: var(--card-radius);
   background: rgba(12, 12, 14, 0.5);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.34);
+  box-shadow: none;
   transition: transform var(--duration-fast) var(--ease-out),
               border-color var(--duration-fast) var(--ease-out),
               box-shadow var(--duration-fast) var(--ease-out),
@@ -749,17 +749,14 @@ button {
   transform: translateY(-5px) rotateX(2deg);
   filter: brightness(1.0) saturate(1.0);
   border-color: rgba(200, 215, 235, 0.32);
-  box-shadow: 0 24px 52px rgba(0, 0, 0, 0.44);
+  box-shadow: none;
 }
 
 .shelf-card.active .shelf-cover {
   transform: translateY(-6px);
   filter: brightness(1.04) saturate(1.05);
   border: 2px solid var(--accent-color);
-  box-shadow:
-    0 0 0 3px var(--accent-soft),
-    0 0 32px var(--accent-glow),
-    0 20px 48px rgba(0, 0, 0, 0.42);
+  box-shadow: none;
 }
 
 .shelf-cover img {
