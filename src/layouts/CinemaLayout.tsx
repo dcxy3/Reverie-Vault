@@ -4,6 +4,7 @@ import {
   Gamepad2,
   Home,
   Library,
+  Pin,
   Play,
   Plus,
   Search,
@@ -67,6 +68,9 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
         </button>
         <button className="rail-button" aria-label="恢复备份" onClick={importBackup}>
           <Upload size={19} />
+        </button>
+        <button className="rail-button pin" aria-label="固定边框与游戏卡" title="固定边框与游戏卡">
+          <Pin size={19} />
         </button>
         <button className="rail-button add" aria-label="添加游戏" onClick={addGame}>
           <Plus size={20} />
