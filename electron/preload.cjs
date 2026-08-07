@@ -16,7 +16,6 @@ contextBridge.exposeInMainWorld("galLauncher", {
   lookupBangumiRating: (game) => ipcRenderer.invoke("game:lookupBangumiRating", game),
   readImageDataUrl: (path) => ipcRenderer.invoke("image:readDataUrl", path),
   sampleButtonPalette: (path) => ipcRenderer.invoke("image:sampleButtonPalette", path),
-  sampleVisibleBackdrop: () => ipcRenderer.invoke("image:sampleVisibleBackdrop"),
   launchGame: (game) => ipcRenderer.invoke("game:launch", game),
   onPlaySessionEnded: (callback) => {
     const listener = (_event, payload) => callback(payload);

@@ -2240,23 +2240,6 @@ ipcMain.handle("image:sampleButtonPalette", async (_event, imagePath) => {
   }
 });
 
-ipcMain.handle("image:sampleVisibleBackdrop", async () => {
-  try {
-    if (!mainWindow || mainWindow.isDestroyed()) return null;
-    const screenshot = await mainWindow.webContents.capturePage();
-    const { width, height } = screenshot.getSize();
-    const backdropArea = screenshot.crop({
-      x: Math.floor(width * 0.28),
-      y: Math.floor(height * 0.42),
-      width: Math.floor(width * 0.38),
-      height: Math.floor(height * 0.34)
-    });
-    return complementaryButtonPalette(backdropArea);
-  } catch {
-    return null;
-  }
-});
-
 function startPlaySession(game, sessionId, startedAt, trackedPids, startedMs = Date.now()) {
   const monitorRoot = monitorRootForGame(game);
   const pids = Array.isArray(trackedPids) ? trackedPids : (trackedPids ? [trackedPids] : []);

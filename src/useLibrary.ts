@@ -141,6 +141,8 @@ export function useLibrary() {
 
   const selected = games.find((game) => game.id === selectedId) ?? games[0] ?? null;
   const selectedImage = selected ? imageCache[selected.backgroundPath] || imageCache[selected.coverPath] : "";
+  const selectedAssetPath = selected ? selected.backgroundPath || selected.coverPath : "";
+
   useEffect(() => {
     let cancelled = false;
     const root = document.documentElement;
@@ -148,26 +150,23 @@ export function useLibrary() {
       root.style.removeProperty("--adaptive-action-rgb");
       root.style.removeProperty("--adaptive-chrome-rgb");
     };
-    if (!selectedImage) {
+    if (!selectedAssetPath) {
       resetPalette();
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      window.galLauncher.sampleVisibleBackdrop().then((palette) => {
-        if (cancelled || !palette) return;
-        root.style.setProperty("--adaptive-action-rgb", palette.actionRgb);
-        root.style.setProperty("--adaptive-chrome-rgb", palette.chromeRgb);
-      }).catch(() => {
-        if (!cancelled) resetPalette();
-      });
-    }, 320);
+    window.galLauncher.sampleButtonPalette(selectedAssetPath).then((palette) => {
+      if (cancelled || !palette) return;
+      root.style.setProperty("--adaptive-action-rgb", palette.actionRgb);
+      root.style.setProperty("--adaptive-chrome-rgb", palette.chromeRgb);
+    }).catch(() => {
+      if (!cancelled) resetPalette();
+    });
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
-  }, [selectedImage]);
+  }, [selectedAssetPath]);
 
   useEffect(() => {
     if (selectedImage && selectedImage !== prevImage && prevImage !== null) {
