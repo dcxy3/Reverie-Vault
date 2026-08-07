@@ -15,6 +15,7 @@ import { formatPlayTime } from "../utils";
 import type { LibraryController } from "../useLibrary";
 
 export function CinemaLayout({ lib }: { lib: LibraryController }) {
+  const [isChromePinned, setIsChromePinned] = React.useState(false);
   const {
     query, setQuery,
     statusFilter, setStatusFilter,
@@ -53,7 +54,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
       <div className="backdrop-mask" />
 
       <div className="rail-reveal" aria-hidden="true" />
-      <aside className="rail">
+      <aside className={`rail ${isChromePinned ? "is-pinned" : ""}`}>
         <div className="rail-logo">
           <Gamepad2 size={24} />
         </div>
@@ -69,7 +70,13 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
         <button className="rail-button" aria-label="恢复备份" onClick={importBackup}>
           <Upload size={19} />
         </button>
-        <button className="rail-button pin" aria-label="固定边框与游戏卡" title="固定边框与游戏卡">
+        <button
+          className={`rail-button pin ${isChromePinned ? "active" : ""}`}
+          aria-label={isChromePinned ? "取消固定边框与游戏卡" : "固定边框与游戏卡"}
+          title={isChromePinned ? "取消固定边框与游戏卡" : "固定边框与游戏卡"}
+          aria-pressed={isChromePinned}
+          onClick={() => setIsChromePinned((pinned) => !pinned)}
+        >
           <Pin size={19} />
         </button>
         <button className="rail-button add" aria-label="添加游戏" onClick={addGame}>
@@ -162,7 +169,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
             <div className="showcase-art">
               {!selectedImage && <Gamepad2 size={72} />}
               <div className="showcase-glow" />
-              <section className="shelf">
+              <section className={`shelf ${isChromePinned ? "is-pinned" : ""}`}>
                 <div className="shelf-title">
                   <span className="accent-dot" />
                   <h2>{statusFilter === "全部" ? "Galgame" : statusFilter}</h2>

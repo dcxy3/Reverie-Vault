@@ -230,7 +230,8 @@ button {
 
 .rail-reveal:hover + .rail,
 .rail:hover,
-.rail:focus-within {
+.rail:focus-within,
+.rail.is-pinned {
   transform: translateX(0);
 }
 
@@ -332,6 +333,13 @@ button {
   background: rgba(var(--adaptive-action-rgb), 0.28);
   border-color: rgba(var(--adaptive-action-rgb), 0.72);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), 0 0 20px rgba(var(--adaptive-action-rgb), 0.24);
+}
+
+.rail-button.pin.active {
+  color: var(--accent-color);
+  background: rgba(var(--adaptive-action-rgb), 0.38);
+  border-color: rgba(var(--adaptive-action-rgb), 0.78);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), 0 0 20px rgba(var(--adaptive-action-rgb), 0.3);
 }
 
 /* --- Main Stage --- */
@@ -844,8 +852,12 @@ button {
   opacity: 1;
 }
 
+.cinema-stage .shelf.is-pinned {
+  opacity: 1;
+}
+
 .cinema-stage .cover-row {
-  max-width: min(440px, calc(100vw - var(--rail-width) - 72px));
+  max-width: min(534px, calc(100vw - var(--rail-width) - 72px));
   padding-top: 8px;
 }
 
