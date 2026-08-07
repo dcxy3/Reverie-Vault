@@ -200,8 +200,8 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
                 <Play size={22} fill="currentColor" />
                 启动
               </button>
-              <button className="floating-info" onClick={() => setIsInfoOpen(true)}>
-                资料
+              <button className="floating-info" onClick={() => setIsInfoOpen(true)} aria-label="游戏资料" title="游戏资料">
+                <SlidersHorizontal size={21} />
               </button>
             </div>
           </section>

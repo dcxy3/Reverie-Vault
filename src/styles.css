@@ -610,7 +610,8 @@ button {
   overflow: hidden;
 }
 
-.floating-play:hover {
+.floating-play:hover,
+.floating-info:hover {
   transform: translateY(-3px) scale(1.015);
   filter: brightness(1.1);
   border-color: rgba(220, 242, 255, 0.8);
@@ -618,7 +619,8 @@ button {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38), 0 18px 42px rgba(12, 55, 80, 0.34), 0 0 38px rgba(134, 215, 255, 0.4);
 }
 
-.floating-play::before {
+.floating-play::before,
+.floating-info::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -628,12 +630,15 @@ button {
   pointer-events: none;
 }
 
-.floating-play:hover::before {
+.floating-play:hover::before,
+.floating-info:hover::before {
   transform: translateX(135%);
 }
 
 .floating-play svg,
-.floating-play {
+.floating-play,
+.floating-info svg,
+.floating-info {
   transition: transform var(--duration-fast) var(--ease-out),
               filter var(--duration-fast) var(--ease-out),
               border-color var(--duration-fast) var(--ease-out),
@@ -641,27 +646,25 @@ button {
               box-shadow var(--duration-fast) var(--ease-out);
 }
 
-.floating-play:hover svg {
+.floating-play:hover svg,
+.floating-info:hover svg {
   transform: translateX(3px) scale(1.08);
 }
 
 .floating-info {
   right: clamp(20px, 3vw, 48px);
-  top: clamp(80px, 10vh, 110px);
-  height: 38px;
-  padding: 0 16px;
-  border: 1px solid var(--glass-border-strong);
-  color: var(--text-primary);
-  background: var(--glass-bg);
-  font-size: 13px;
-  font-weight: 600;
-  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-}
-
-.floating-info:hover {
-  transform: translateY(-2px);
-  background: var(--glass-bg-strong);
-  border-color: rgba(200, 215, 235, 0.28);
+  bottom: clamp(44px, 10vh, 100px);
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  border: 1px solid rgba(202, 231, 248, 0.42);
+  border-radius: 6px;
+  color: rgba(239, 249, 255, 0.94);
+  background: linear-gradient(120deg, rgba(125, 191, 226, 0.2), rgba(188, 226, 246, 0.12));
+  backdrop-filter: blur(16px) saturate(130%);
+  -webkit-backdrop-filter: blur(16px) saturate(130%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 12px 32px rgba(15, 44, 63, 0.2), 0 0 24px rgba(129, 207, 247, 0.1);
+  overflow: hidden;
 }
 
 /* ================================================
@@ -817,6 +820,11 @@ button {
 
 .cinema-stage .floating-play {
   right: clamp(148px, 14vw, 200px);
+  bottom: clamp(24px, 5vh, 48px);
+}
+
+.cinema-stage .floating-info {
+  right: calc(clamp(148px, 14vw, 200px) + clamp(184px, 16vw, 238px) + 12px);
   bottom: clamp(24px, 5vh, 48px);
 }
 
