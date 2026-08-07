@@ -17,8 +17,6 @@
   --accent-color: #7eb8da;
   --accent-glow: rgba(126, 184, 218, 0.28);
   --accent-soft: rgba(126, 184, 218, 0.1);
-  --adaptive-action-rgb: 126, 184, 218;
-  --adaptive-chrome-rgb: 68, 99, 118;
   --text-primary: #e4eef8;
   --text-secondary: rgba(210, 225, 242, 0.62);
   --text-muted: rgba(210, 225, 242, 0.38);
@@ -211,7 +209,7 @@ button {
   align-items: center;
   gap: 12px;
   padding: 28px 0 20px;
-  background: linear-gradient(90deg, rgba(var(--adaptive-chrome-rgb), 0.34) 0%, rgba(var(--adaptive-chrome-rgb), 0.13) 70%, transparent 100%);
+  background: linear-gradient(90deg, rgba(10, 14, 20, 0.18) 0%, rgba(10, 14, 20, 0.06) 70%, transparent 100%);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   transition: background var(--duration-normal) var(--ease-out),
@@ -219,7 +217,7 @@ button {
 }
 
 .rail:hover {
-  background: linear-gradient(90deg, rgba(var(--adaptive-chrome-rgb), 0.46), rgba(var(--adaptive-chrome-rgb), 0.2) 70%, transparent 100%);
+  background: linear-gradient(90deg, rgba(10, 14, 20, 0.28), rgba(10, 14, 20, 0.10) 70%, transparent 100%);
 }
 
 .rail-logo {
@@ -230,8 +228,8 @@ button {
   margin-bottom: 24px;
   border-radius: 12px;
   color: var(--accent-color);
-  background: rgba(var(--adaptive-chrome-rgb), 0.34);
-  border: 1px solid rgba(var(--adaptive-action-rgb), 0.28);
+  background: rgba(126, 184, 218, 0.12);
+  border: 1px solid rgba(126, 184, 218, 0.22);
   backdrop-filter: blur(var(--glass-blur));
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 0 16px var(--accent-soft);
   transition: box-shadow var(--duration-fast) var(--ease-out);
@@ -248,7 +246,7 @@ button {
   height: 40px;
   border-radius: 11px;
   color: var(--text-secondary);
-  background: rgba(var(--adaptive-chrome-rgb), 0.3);
+  background: rgba(var(--glass-base), 0.10);
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
   transition: color var(--duration-fast) var(--ease-out),
@@ -260,7 +258,7 @@ button {
 
 .rail-button:hover {
   color: var(--text-primary);
-  background: rgba(var(--adaptive-action-rgb), 0.25);
+  background: rgba(200, 218, 238, 0.16);
   transform: translateY(-1px);
 }
 
@@ -290,23 +288,23 @@ button {
 
 .rail-button.active {
   color: var(--accent-color);
-  background: rgba(var(--adaptive-action-rgb), 0.24);
-  box-shadow: 0 0 12px rgba(var(--adaptive-action-rgb), 0.24);
+  background: var(--accent-soft);
+  box-shadow: 0 0 12px var(--accent-soft);
 }
 
 .rail-button.add {
   margin-top: auto;
   color: var(--text-primary);
-  background: rgba(var(--adaptive-chrome-rgb), 0.5);
-  border: 1px solid rgba(var(--adaptive-action-rgb), 0.28);
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border-strong);
   backdrop-filter: blur(var(--glass-blur));
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .rail-button.add:hover {
-  background: rgba(var(--adaptive-action-rgb), 0.28);
-  border-color: rgba(var(--adaptive-action-rgb), 0.72);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), 0 0 20px rgba(var(--adaptive-action-rgb), 0.24);
+  background: var(--glass-bg-strong);
+  border-color: var(--accent-color);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), 0 0 20px var(--accent-soft);
 }
 
 /* --- Main Stage --- */
@@ -348,7 +346,7 @@ button {
   padding: 4px 12px;
   border: 1px solid var(--glass-border);
   border-radius: 999px;
-  background: rgba(var(--adaptive-chrome-rgb), 0.28);
+  background: var(--glass-bg-light);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
@@ -434,8 +432,8 @@ button {
 }
 
 .search-pill:focus-within {
-  border-color: rgba(var(--adaptive-action-rgb), 0.72);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14), 0 0 18px rgba(var(--adaptive-action-rgb), 0.24);
+  border-color: var(--accent-color);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14), 0 0 18px var(--accent-soft);
   width: min(380px, 30vw);
 }
 
@@ -464,7 +462,7 @@ button {
   border: 1px solid var(--glass-border);
   border-radius: 999px;
   color: var(--text-secondary);
-  background: rgba(var(--adaptive-chrome-rgb), 0.24);
+  background: var(--glass-bg-light);
   backdrop-filter: blur(var(--glass-blur));
   font-weight: 650;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 8px 20px rgba(0, 0, 0, 0.1);

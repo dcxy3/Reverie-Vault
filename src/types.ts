@@ -106,7 +106,6 @@ export interface LauncherApi {
   findCoverCandidates: (game: Game) => Promise<CoverCandidate[]>;
   lookupBangumiRating: (game: Game) => Promise<Partial<Game>>;
   readImageDataUrl: (path: string) => Promise<string>;
-  sampleButtonPalette: (path: string) => Promise<{ actionRgb: string; chromeRgb: string } | null>;
   launchGame: (game: Game) => Promise<LaunchResult>;
   onPlaySessionEnded: (callback: (event: PlaySessionEndedEvent) => void) => () => void;
 }

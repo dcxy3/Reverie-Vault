@@ -2189,57 +2189,6 @@ ipcMain.handle("image:readDataUrl", async (_event, imagePath) => {
   return `data:${mime};base64,${data}`;
 });
 
-function complementaryButtonPalette(image) {
-  if (!image || image.isEmpty()) return null;
-  const { width, height } = image.getSize();
-  if (!width || !height) return null;
-  const bitmap = image.toBitmap();
-  const startY = Math.floor(height * 0.64);
-  const step = Math.max(1, Math.floor(Math.sqrt((width * (height - startY)) / 14000)));
-  let red = 0;
-  let green = 0;
-  let blue = 0;
-  let count = 0;
-
-  for (let y = startY; y < height; y += step) {
-    for (let x = 0; x < width; x += step) {
-      const offset = (y * width + x) * 4;
-      const alpha = bitmap[offset + 3];
-      if (alpha < 32) continue;
-      blue += bitmap[offset];
-      green += bitmap[offset + 1];
-      red += bitmap[offset + 2];
-      count++;
-    }
-  }
-  if (!count) return null;
-
-  const complement = [red, green, blue].map((value) => Math.round(255 - value / count));
-  const chrome = complement.map((value) => Math.round(value * 0.54));
-  return { actionRgb: complement.join(", "), chromeRgb: chrome.join(", ") };
-}
-
-async function nativeImageFromSource(imagePath) {
-  if (!imagePath) return null;
-  if (/^https?:\/\//i.test(imagePath)) {
-    const response = await net.fetch(imagePath, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131.0.0.0 Safari/537.36" }
-    });
-    if (!response.ok) return null;
-    return nativeImage.createFromBuffer(Buffer.from(await response.arrayBuffer()));
-  }
-  const image = nativeImage.createFromPath(imagePath);
-  return image.isEmpty() ? null : image;
-}
-
-ipcMain.handle("image:sampleButtonPalette", async (_event, imagePath) => {
-  try {
-    return complementaryButtonPalette(await nativeImageFromSource(imagePath));
-  } catch {
-    return null;
-  }
-});
-
 function startPlaySession(game, sessionId, startedAt, trackedPids, startedMs = Date.now()) {
   const monitorRoot = monitorRootForGame(game);
   const pids = Array.isArray(trackedPids) ? trackedPids : (trackedPids ? [trackedPids] : []);
