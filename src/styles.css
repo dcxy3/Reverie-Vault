@@ -807,9 +807,16 @@ button {
   position: absolute;
   top: 8px;
   left: clamp(20px, 3vw, 56px);
-  right: 0;
+  width: min(534px, calc(100vw - var(--rail-width) - 72px));
   z-index: 3;
   padding: 0;
+  opacity: 0;
+  transition: opacity 300ms var(--ease-out);
+}
+
+.cinema-stage .shelf:hover,
+.cinema-stage .shelf:focus-within {
+  opacity: 1;
 }
 
 .cinema-stage .cover-row {
