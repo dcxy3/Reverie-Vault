@@ -487,6 +487,17 @@ export function useLibrary() {
     });
   }
 
+  function addReadingTime(itemId: string, seconds: number) {
+    if (seconds <= 0) return;
+    setReadingItems((current) => {
+      const next = current.map((item) => item.id === itemId
+        ? { ...item, totalReadingSeconds: (item.totalReadingSeconds ?? 0) + seconds, lastReadAt: new Date().toISOString() }
+        : item);
+      void window.galLauncher.saveReadingLibrary(next);
+      return next;
+    });
+  }
+
   const counts = {
     total: games.length,
     active: games.filter((game) => game.status === "进行中").length,
@@ -568,6 +579,7 @@ export function useLibrary() {
     chooseImage
     , importReadingItems
     , saveReadingProgress
+    , addReadingTime
   };
 }
 

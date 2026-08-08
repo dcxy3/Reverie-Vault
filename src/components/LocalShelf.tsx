@@ -1,4 +1,4 @@
-import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, Play, SlidersHorizontal, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReadingItem, ReadingItemKind, ReadingTextDocument } from "../types";
 
@@ -37,18 +37,28 @@ function paginateNovel(content: string): NovelPage[] {
   return pages.length ? pages : [{ chapter, paragraphs: ["这本轻小说没有可显示的正文。"] }];
 }
 
-export function LocalShelf({ items, onImport, onSaveProgress }: {
+function formatReadingTime(seconds = 0) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  return hours ? `${hours} 小时 ${minutes} 分钟` : `${minutes} 分钟`;
+}
+
+export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime }: {
   items: ReadingItem[];
   onImport: (kind: ReadingItemKind) => void;
   onSaveProgress: (itemId: string, page: number, chapter: string) => void;
+  onAddReadingTime: (itemId: string, seconds: number) => void;
 }) {
   const [reader, setReader] = useState<ActiveReader | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
+  const [selectedItem, setSelectedItem] = useState<ReadingItem | null>(null);
+  const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [readingStartedAt, setReadingStartedAt] = useState<number | null>(null);
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setReader(null);
+      if (event.key === "Escape") closeReader();
       if (!reader) return;
       if (event.key === "ArrowLeft" || event.key === "PageUp") {
         event.preventDefault();
@@ -61,7 +71,7 @@ export function LocalShelf({ items, onImport, onSaveProgress }: {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [reader]);
+  }, [reader, readingStartedAt]);
 
   useEffect(() => {
     if (!reader) return;
@@ -77,11 +87,19 @@ export function LocalShelf({ items, onImport, onSaveProgress }: {
       const pages = paginateNovel(document.content);
       setPageIndex(Math.min(item.lastReadPage ?? 0, pages.length - 1));
       setReader({ item, document, pages });
+      setReadingStartedAt(Date.now());
     } catch (error) {
       const document = { title: item.title, content: error instanceof Error ? error.message : "无法打开这本轻小说。" };
       setPageIndex(0);
       setReader({ item, document, pages: paginateNovel(document.content) });
+      setReadingStartedAt(Date.now());
     }
+  }
+
+  function closeReader() {
+    if (reader && readingStartedAt) onAddReadingTime(reader.item.id, Math.max(1, Math.round((Date.now() - readingStartedAt) / 1000)));
+    setReader(null);
+    setReadingStartedAt(null);
   }
 
   const activePage = reader?.pages[pageIndex];
@@ -102,7 +120,7 @@ export function LocalShelf({ items, onImport, onSaveProgress }: {
         <div className="local-shelf-wall">
           {items.map((item) => {
             const Icon = item.kind === "manga" ? Image : FileText;
-            return <button className={`local-shelf-card ${item.kind === "novel" ? "is-readable" : ""}`} key={item.id} type="button" onClick={() => void openNovel(item)} title={item.kind === "novel" ? "打开轻小说" : "漫画阅读器即将推出"}>
+            return <button className={`local-shelf-card ${selectedItem?.id === item.id ? "selected" : ""}`} key={item.id} type="button" onClick={() => setSelectedItem(item)} title={item.title}>
               <div className={`local-shelf-cover ${item.kind === "manga" ? "manga-a" : "novel-a"}`}><Icon size={34} /><span>{item.kind === "manga" ? "漫画" : "轻小说"}</span></div>
               <div className="local-shelf-meta"><strong>{item.title}</strong><span>{item.lastReadChapter ? `读至 ${item.lastReadChapter}` : `${item.format} · 已导入`}</span></div>
             </button>;
@@ -110,9 +128,31 @@ export function LocalShelf({ items, onImport, onSaveProgress }: {
         </div>
       )}
 
+      {selectedItem && (
+        <div className="reading-launch-actions">
+          <button className="reading-settings-button" type="button" onClick={() => setIsInfoOpen(true)} aria-label="阅读设置"><SlidersHorizontal size={20} /></button>
+          <button className="reading-start-button" type="button" onClick={() => void openNovel(selectedItem)} disabled={selectedItem.kind !== "novel"}><Play size={20} fill="currentColor" />开始阅读</button>
+        </div>
+      )}
+
+      {isInfoOpen && selectedItem && (
+        <aside className="reading-info-sheet">
+          <button className="reading-info-close" type="button" onClick={() => setIsInfoOpen(false)}><X size={18} /></button>
+          <p className="local-reader-kicker">READING DETAILS</p>
+          <h2>{selectedItem.title}</h2>
+          <p className="reading-info-description">本地导入作品。阅读进度和时长会自动保存到书架。</p>
+          <dl>
+            <div><dt>格式</dt><dd>{selectedItem.format}</dd></div>
+            <div><dt>总时长</dt><dd>{formatReadingTime(selectedItem.totalReadingSeconds)}</dd></div>
+            <div><dt>阅读进度</dt><dd>{selectedItem.lastReadChapter || "尚未开始"}</dd></div>
+            <div><dt>导入时间</dt><dd>{new Date(selectedItem.importedAt).toLocaleDateString()}</dd></div>
+          </dl>
+        </aside>
+      )}
+
       {reader && activePage && (
         <section className="local-reader" role="dialog" aria-modal="true" aria-label={reader.document.title}>
-          <button className="local-reader-exit" type="button" onClick={() => setReader(null)}><X size={18} />退出阅读</button>
+          <button className="local-reader-exit" type="button" onClick={closeReader}><X size={18} />退出阅读</button>
           <div className="local-reader-scroll" ref={readerScrollRef}>
             <article className="local-reader-page">
               <p className="local-reader-kicker">{activePage.chapter}</p>

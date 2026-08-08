@@ -1957,6 +1957,64 @@ textarea:focus-visible {
   cursor: pointer;
 }
 
+.local-shelf-card.selected .local-shelf-cover {
+  outline: 2px solid #b9e4ff;
+  outline-offset: 3px;
+  box-shadow: 0 20px 38px -18px rgba(0, 0, 0, 0.9), 0 0 22px rgba(126, 184, 218, 0.4);
+}
+
+.reading-launch-actions {
+  position: fixed;
+  left: calc(var(--rail-width) + 36px);
+  bottom: 34px;
+  z-index: 12;
+  display: flex;
+  gap: 12px;
+}
+
+.reading-start-button,
+.reading-settings-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 54px;
+  border: 1px solid rgba(216, 242, 255, 0.35);
+  color: #f8fcff;
+  background: rgba(28, 75, 102, 0.72);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px);
+  font-weight: 800;
+}
+
+.reading-start-button { min-width: 180px; border-radius: 8px; }
+.reading-settings-button { width: 54px; border-radius: 8px; }
+.reading-start-button:hover:not(:disabled), .reading-settings-button:hover { background: rgba(74, 151, 191, 0.8); }
+.reading-start-button:disabled { cursor: not-allowed; opacity: 0.45; }
+
+.reading-info-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 40;
+  width: min(390px, 36vw);
+  height: 100vh;
+  padding: 72px 32px 36px;
+  border-left: 1px solid rgba(225, 244, 255, 0.22);
+  color: #f5fbff;
+  background: rgba(12, 29, 44, 0.78);
+  box-shadow: -22px 0 55px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(28px);
+}
+
+.reading-info-close { position: absolute; top: 24px; right: 24px; color: #eff9ff; }
+.reading-info-sheet h2 { margin: 9px 0 18px; font-size: 25px; line-height: 1.3; }
+.reading-info-description { color: rgba(237, 248, 255, 0.78); font-size: 13px; line-height: 1.7; }
+.reading-info-sheet dl { display: grid; gap: 12px; margin-top: 30px; }
+.reading-info-sheet dl div { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(225, 244, 255, 0.12); }
+.reading-info-sheet dt { color: rgba(218, 238, 252, 0.68); font-size: 12px; }
+.reading-info-sheet dd { margin: 0; color: #f7fcff; font-size: 12px; text-align: right; }
+
 .local-shelf-cover {
   position: relative;
   display: grid;

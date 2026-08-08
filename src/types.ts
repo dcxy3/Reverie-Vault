@@ -79,6 +79,7 @@ export interface ReadingItem {
   lastReadPage?: number;
   lastReadChapter?: string;
   lastReadAt?: string;
+  totalReadingSeconds?: number;
 }
 
 export type PickedReadingItem = Omit<ReadingItem, "id" | "importedAt">;
