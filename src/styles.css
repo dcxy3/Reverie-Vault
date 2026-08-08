@@ -2028,9 +2028,17 @@ textarea:focus-visible {
   display: grid;
   place-items: center;
   padding: 76px max(32px, 8vw) 48px;
-  overflow-y: auto;
+  overflow: hidden;
   background: rgba(5, 14, 24, 0.54);
   backdrop-filter: blur(26px) saturate(0.78);
+}
+
+.local-reader-scroll {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(220, 240, 255, 0.35) transparent;
 }
 
 @keyframes local-reader-rise {
@@ -2062,6 +2070,7 @@ textarea:focus-visible {
 
 .local-reader-page {
   width: min(100%, 780px);
+  margin: 0 auto;
   padding: clamp(46px, 7vw, 92px) clamp(24px, 6vw, 72px);
   color: #f8fcff;
   text-align: center;
@@ -2093,13 +2102,12 @@ textarea:focus-visible {
 }
 
 .local-reader-pagination {
-  position: fixed;
-  right: 50%;
-  bottom: 28px;
+  position: static;
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  transform: translateX(50%);
+  width: max-content;
+  margin: 38px auto 0;
   padding: 6px;
   border: 1px solid rgba(224, 243, 255, 0.26);
   border-radius: 999px;
