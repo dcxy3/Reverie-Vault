@@ -1,6 +1,7 @@
 import React from "react";
 import {
   Download,
+  BookOpen,
   Gamepad2,
   Home,
   Library,
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 import { formatPlayTime } from "../utils";
 import type { LibraryController } from "../useLibrary";
+import { LocalShelf } from "../components/LocalShelf";
 
 export function CinemaLayout({ lib }: { lib: LibraryController }) {
   const [isChromePinned, setIsChromePinned] = React.useState(false);
@@ -63,6 +65,9 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
         </button>
         <button className={viewMode === "collection" ? "rail-button active" : "rail-button"} aria-label="收藏展示柜" onClick={() => { setViewMode("collection"); setStatusFilter("全部"); }}>
           <Library size={20} />
+        </button>
+        <button className={viewMode === "reading" ? "rail-button active" : "rail-button"} aria-label="本地书架" title="本地书架" onClick={() => { setViewMode("reading"); setIsInfoOpen(false); }}>
+          <BookOpen size={20} />
         </button>
         <button className="rail-button" aria-label="导出备份" onClick={exportBackup}>
           <Download size={19} />
@@ -176,6 +181,8 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
               )}
             </div>
           </section>
+        ) : viewMode === "reading" ? (
+          <LocalShelf />
         ) : selected ? (
           <section className="feature">
             <div className="showcase-art">

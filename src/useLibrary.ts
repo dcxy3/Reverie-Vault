@@ -15,7 +15,7 @@ export function useLibrary() {
   const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<GameStatus | "全部">("全部");
-  const [viewMode, setViewMode] = useState<"library" | "collection">("library");
+  const [viewMode, setViewMode] = useState<"library" | "collection" | "reading">("library");
   const [isEditing, setIsEditing] = useState(false);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [draft, setDraft] = useState<Game | null>(null);
