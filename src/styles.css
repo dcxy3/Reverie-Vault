@@ -993,6 +993,7 @@ button {
   --tilt-y: 0deg;
   display: grid;
   gap: 8px;
+  width: 100%;
   min-width: 0;
   padding: 0;
   border: 0;
@@ -1011,7 +1012,7 @@ button {
 
 .collection-poster-card:hover {
   z-index: 2;
-  transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateY(-10px) scale(1.06);
+  transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateY(-10px);
 }
 
 .collection-poster-art {
