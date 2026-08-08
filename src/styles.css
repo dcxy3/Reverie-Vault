@@ -2029,6 +2029,8 @@ textarea:focus-visible {
 .reading-info-delete { display: inline-flex; align-items: center; gap: 8px; margin-top: 30px; padding: 10px 12px; border: 1px solid rgba(255, 151, 160, 0.45); border-radius: 7px; color: #ffe8ea; background: rgba(143, 35, 48, 0.3); font-size: 12px; font-weight: 700; }
 .reading-info-delete:hover { background: rgba(176, 49, 65, 0.55); }
 .reading-cover-search { margin-top: 18px; padding: 9px 11px; border: 1px solid rgba(185, 228, 255, 0.42); border-radius: 7px; color: #f3fbff; background: rgba(56, 122, 158, 0.38); font-size: 12px; font-weight: 700; }
+.reading-cover-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.reading-cover-actions .reading-cover-search { display: inline-flex; align-items: center; gap: 6px; margin-top: 0; }
 .reading-cover-candidates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; max-height: 250px; overflow-y: auto; }
 .reading-cover-candidates button { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border-radius: 5px; background: rgba(0,0,0,.25); }
 .reading-cover-candidates img, .local-shelf-cover img { width: 100%; height: 100%; object-fit: cover; }
@@ -2058,6 +2060,21 @@ textarea:focus-visible {
 .local-shelf-cover span {
   position: relative;
   z-index: 1;
+}
+
+.local-shelf-type-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 4px 7px;
+  border: 1px solid rgba(235, 248, 255, 0.5);
+  border-radius: 999px;
+  color: #ffffff;
+  background: rgba(8, 23, 36, 0.72);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  font-size: 10px;
+  line-height: 1;
 }
 
 .local-shelf-cover span {

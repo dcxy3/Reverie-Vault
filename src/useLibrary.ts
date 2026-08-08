@@ -516,6 +516,14 @@ export function useLibrary() {
     });
   }
 
+  function setReadingLocalCover(itemId: string, coverPath: string) {
+    setReadingItems((current) => {
+      const next = current.map((item) => item.id === itemId ? { ...item, coverPath, coverUrl: undefined, coverSource: "本地图片" } : item);
+      void window.galLauncher.saveReadingLibrary(next);
+      return next;
+    });
+  }
+
   const counts = {
     total: games.length,
     active: games.filter((game) => game.status === "进行中").length,
@@ -600,6 +608,7 @@ export function useLibrary() {
     , addReadingTime
     , removeReadingItem
     , setReadingCover
+    , setReadingLocalCover
   };
 }
 

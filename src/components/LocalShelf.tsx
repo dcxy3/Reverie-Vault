@@ -1,4 +1,4 @@
-import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, Play, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImagePlus, Play, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind, ReadingTextDocument } from "../types";
 
@@ -43,13 +43,14 @@ function formatReadingTime(seconds = 0) {
   return hours ? `${hours} 小时 ${minutes} 分钟` : `${minutes} 分钟`;
 }
 
-export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, onRemoveItem, onSetCover }: {
+export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, onRemoveItem, onSetCover, onSetLocalCover }: {
   items: ReadingItem[];
   onImport: (kind: ReadingItemKind) => void;
   onSaveProgress: (itemId: string, page: number, chapter: string) => void;
   onAddReadingTime: (itemId: string, seconds: number) => void;
   onRemoveItem: (item: ReadingItem) => boolean;
   onSetCover: (itemId: string, coverUrl: string, coverSource: string) => void;
+  onSetLocalCover: (itemId: string, coverPath: string) => void;
 }) {
   const [reader, setReader] = useState<ActiveReader | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
@@ -58,6 +59,15 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
   const [readingStartedAt, setReadingStartedAt] = useState<number | null>(null);
   const [coverCandidates, setCoverCandidates] = useState<ReadingCoverCandidate[]>([]);
   const [isFindingCovers, setIsFindingCovers] = useState(false);
+  const [localCoverUrls, setLocalCoverUrls] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all(items.filter((item) => item.coverPath).map(async (item) => [item.id, await window.galLauncher.readImageDataUrl(item.coverPath!)] as const)).then((entries) => {
+      if (!cancelled) setLocalCoverUrls(Object.fromEntries(entries));
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [items]);
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -132,7 +142,7 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
                 card.style.setProperty("--tilt-y", `${((event.clientX - bounds.left) / bounds.width - 0.5) * 60}deg`);
               }}
               onMouseLeave={(event) => { event.currentTarget.style.removeProperty("--tilt-x"); event.currentTarget.style.removeProperty("--tilt-y"); }}>
-              <div className={`local-shelf-cover ${item.kind === "manga" ? "manga-a" : "novel-a"}`}>{item.coverUrl ? <img src={item.coverUrl} alt="" /> : <><Icon size={34} /><span>{item.kind === "manga" ? "漫画" : "轻小说"}</span></>}</div>
+              <div className={`local-shelf-cover ${item.kind === "manga" ? "manga-a" : "novel-a"}`}>{item.coverUrl || localCoverUrls[item.id] ? <img src={item.coverUrl || localCoverUrls[item.id]} alt="" /> : <><Icon size={34} /><span>{item.kind === "manga" ? "漫画" : "轻小说"}</span></>}<b className="local-shelf-type-badge">{item.kind === "manga" ? "漫画" : "轻小说"}</b></div>
               <div className="local-shelf-meta"><strong>{item.title}</strong><span>{item.lastReadChapter ? `读至 ${item.lastReadChapter}` : `${item.format} · 已导入`}</span></div>
             </button>;
           })}
@@ -152,11 +162,12 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
           <p className="local-reader-kicker">READING DETAILS</p>
           <h2>{selectedItem.title}</h2>
           <p className="reading-info-description">本地导入作品。阅读进度和时长会自动保存到书架。</p>
-          <button className="reading-cover-search" type="button" disabled={isFindingCovers} onClick={async () => {
+          <div className="reading-cover-actions"><button className="reading-cover-search" type="button" disabled={isFindingCovers} onClick={async () => {
             setIsFindingCovers(true);
             setCoverCandidates(await window.galLauncher.findReadingCoverCandidates(selectedItem));
             setIsFindingCovers(false);
           }}>{isFindingCovers ? "正在查找封面…" : "查找在线封面"}</button>
+          <button className="reading-cover-search" type="button" onClick={async () => { const path = await window.galLauncher.pickImage(); if (path) onSetLocalCover(selectedItem.id, path); }}><ImagePlus size={15} />上传本地封面</button></div>
           {coverCandidates.length > 0 && <div className="reading-cover-candidates">{coverCandidates.map((candidate) => <button type="button" key={candidate.id} onClick={() => { onSetCover(selectedItem.id, candidate.imageUrl, candidate.source); setCoverCandidates([]); }}><img src={candidate.imageUrl} alt="" /><span>{candidate.source}</span></button>)}</div>}
           <dl>
             <div><dt>格式</dt><dd>{selectedItem.format}</dd></div>

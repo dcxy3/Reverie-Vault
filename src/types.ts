@@ -81,6 +81,7 @@ export interface ReadingItem {
   lastReadAt?: string;
   totalReadingSeconds?: number;
   coverUrl?: string;
+  coverPath?: string;
   coverSource?: string;
 }
 
