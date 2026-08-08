@@ -1977,7 +1977,7 @@ textarea:focus-visible {
 
 .reading-launch-actions {
   position: fixed;
-  left: calc(var(--rail-width) + 36px);
+  right: 36px;
   bottom: 34px;
   z-index: 12;
   display: flex;
