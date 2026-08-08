@@ -2063,12 +2063,8 @@ textarea:focus-visible {
 
 .local-reader-page {
   width: min(100%, 780px);
-  padding: clamp(30px, 5vw, 58px) clamp(24px, 6vw, 72px);
-  border: 1px solid rgba(233, 247, 255, 0.3);
-  border-radius: 18px;
+  padding: clamp(46px, 7vw, 92px) clamp(24px, 6vw, 72px);
   color: #f8fcff;
-  background: rgba(21, 38, 54, 0.5);
-  box-shadow: 0 24px 65px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.12);
   text-align: center;
 }
 
