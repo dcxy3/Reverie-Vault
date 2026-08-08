@@ -1,6 +1,9 @@
 const { contextBridge, ipcRenderer } = require("electron");
 
 contextBridge.exposeInMainWorld("galLauncher", {
+  loadReadingLibrary: () => ipcRenderer.invoke("reader:load"),
+  saveReadingLibrary: (items) => ipcRenderer.invoke("reader:save", items),
+  pickReadingItems: (kind) => ipcRenderer.invoke("dialog:pickReadingItems", kind),
   loadLibrary: () => ipcRenderer.invoke("library:load"),
   saveLibrary: (games) => ipcRenderer.invoke("library:save", games),
   pickLaunchFile: () => ipcRenderer.invoke("dialog:pickLaunchFile"),

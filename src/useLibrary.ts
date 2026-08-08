@@ -7,11 +7,15 @@ import type {
   MetadataCandidate,
   PickedLaunchFile,
   PlaySessionEndedEvent
+  , PickedReadingItem
+  , ReadingItem
+  , ReadingItemKind
 } from "./types";
 import { statuses, nowIso, makeGame, formatPlayTime, getTotalPlaySeconds } from "./utils";
 
 export function useLibrary() {
   const [games, setGames] = useState<Game[]>([]);
+  const [readingItems, setReadingItems] = useState<ReadingItem[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<GameStatus | "全部">("全部");
@@ -42,6 +46,10 @@ export function useLibrary() {
       setGames(loaded);
       setSelectedId(loaded[0]?.id ?? "");
     });
+  }, []);
+
+  useEffect(() => {
+    window.galLauncher.loadReadingLibrary().then(setReadingItems);
   }, []);
 
   useEffect(() => {
@@ -451,6 +459,24 @@ export function useLibrary() {
     setDraft({ ...draft, [field]: imagePath });
   }
 
+  async function importReadingItems(kind: ReadingItemKind) {
+    const picked = await window.galLauncher.pickReadingItems(kind);
+    if (!picked.length) return;
+    setReadingItems((current) => {
+      const existingPaths = new Set(current.map((item) => item.filePath));
+      const additions = picked
+        .filter((item: PickedReadingItem) => !existingPaths.has(item.filePath))
+        .map((item: PickedReadingItem) => ({
+          ...item,
+          id: crypto.randomUUID(),
+          importedAt: new Date().toISOString()
+        }));
+      const next = [...additions, ...current];
+      void window.galLauncher.saveReadingLibrary(next);
+      return next;
+    });
+  }
+
   const counts = {
     total: games.length,
     active: games.filter((game) => game.status === "进行中").length,
@@ -480,6 +506,7 @@ export function useLibrary() {
 
   return {
     games,
+    readingItems,
     selectedId, setSelectedId,
     query, setQuery,
     statusFilter, setStatusFilter,
@@ -529,6 +556,7 @@ export function useLibrary() {
     closeContextMenu,
     saveDraft,
     chooseImage
+    , importReadingItems
   };
 }
 

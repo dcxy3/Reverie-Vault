@@ -31,6 +31,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
     fadingImage,
     filteredGames,
     collectionGames,
+    readingItems,
     remoteImagePaths,
     counts,
     totalSeconds,
@@ -42,6 +43,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
     exportBackup,
     importBackup,
     openContextMenu
+    , importReadingItems
   } = lib;
 
   return (
@@ -182,7 +184,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
             </div>
           </section>
         ) : viewMode === "reading" ? (
-          <LocalShelf />
+          <LocalShelf items={readingItems} onImport={importReadingItems} />
         ) : selected ? (
           <section className="feature">
             <div className="showcase-art">

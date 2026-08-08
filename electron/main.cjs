@@ -93,6 +93,12 @@ function dataPath() {
   return path.join(dir, "games.json");
 }
 
+function readingDataPath() {
+  const dir = path.join(app.getPath("userData"), "library");
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, "reading-items.json");
+}
+
 function journalFile() {
   return path.join(app.getPath("userData"), "library", "play-session-journal.json");
 }
@@ -136,6 +142,21 @@ function readLibrary() {
 function writeLibrary(games) {
   fs.writeFileSync(dataPath(), JSON.stringify(games, null, 2), "utf8");
   return games;
+}
+
+function readReadingLibrary() {
+  try {
+    const items = JSON.parse(fs.readFileSync(readingDataPath(), "utf8"));
+    return Array.isArray(items) ? items : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeReadingLibrary(items) {
+  const safeItems = Array.isArray(items) ? items : [];
+  fs.writeFileSync(readingDataPath(), JSON.stringify(safeItems, null, 2), "utf8");
+  return safeItems;
 }
 
 function backupPayload(games) {
@@ -2083,6 +2104,34 @@ async function findCoverCandidates(game) {
 ipcMain.handle("library:load", async () => normalizeLibraryForRuntime(readLibrary()));
 
 ipcMain.handle("library:save", (_event, games) => writeLibrary(games));
+
+ipcMain.handle("reader:load", () => readReadingLibrary());
+
+ipcMain.handle("reader:save", (_event, items) => writeReadingLibrary(items));
+
+ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
+  const isManga = kind === "manga";
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: isManga ? "Import local comics" : "Import local light novels",
+    properties: ["openFile", "multiSelections"],
+    filters: isManga
+      ? [
+          { name: "Comic files", extensions: ["cbz", "zip", "pdf", "png", "jpg", "jpeg", "webp"] },
+          { name: "All files", extensions: ["*"] }
+        ]
+      : [
+          { name: "Light novels", extensions: ["epub", "txt", "pdf"] },
+          { name: "All files", extensions: ["*"] }
+        ]
+  });
+  if (result.canceled) return [];
+  return result.filePaths.map((filePath) => ({
+    title: path.basename(filePath, path.extname(filePath)),
+    kind: isManga ? "manga" : "novel",
+    filePath,
+    format: path.extname(filePath).replace(/^\./, "").toUpperCase() || "FILE"
+  }));
+});
 
 ipcMain.handle("dialog:pickLaunchFile", async () => {
   const result = await dialog.showOpenDialog(mainWindow, {

@@ -67,6 +67,19 @@ export interface PickedLaunchFile {
   workingDirectory: string;
 }
 
+export type ReadingItemKind = "novel" | "manga";
+
+export interface ReadingItem {
+  id: string;
+  title: string;
+  kind: ReadingItemKind;
+  filePath: string;
+  format: string;
+  importedAt: string;
+}
+
+export type PickedReadingItem = Omit<ReadingItem, "id" | "importedAt">;
+
 export interface CoverCandidate {
   id: string;
   title: string;
@@ -94,6 +107,9 @@ export interface MetadataCandidate {
 export interface LauncherApi {
   loadLibrary: () => Promise<Game[]>;
   saveLibrary: (games: Game[]) => Promise<Game[]>;
+  loadReadingLibrary: () => Promise<ReadingItem[]>;
+  saveReadingLibrary: (items: ReadingItem[]) => Promise<ReadingItem[]>;
+  pickReadingItems: (kind: ReadingItemKind) => Promise<PickedReadingItem[]>;
   exportLibrary: (games: Game[]) => Promise<string>;
   importLibrary: () => Promise<Game[] | null>;
   pickLaunchFile: () => Promise<PickedLaunchFile | null>;
