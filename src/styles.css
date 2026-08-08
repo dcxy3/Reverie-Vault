@@ -20,8 +20,8 @@
   --adaptive-action-rgb: 126, 184, 218;
   --adaptive-chrome-rgb: 68, 99, 118;
   --text-primary: #e4eef8;
-  --text-secondary: rgba(210, 225, 242, 0.62);
-  --text-muted: rgba(210, 225, 242, 0.38);
+  --text-secondary: rgba(226, 239, 252, 0.84);
+  --text-muted: rgba(219, 234, 249, 0.66);
   --danger: rgba(235, 130, 140, 0.7);
   --danger-bg: rgba(190, 70, 80, 0.15);
 
@@ -447,7 +447,7 @@ button {
   gap: 20px;
   position: relative;
   z-index: 5;
-  opacity: 0.72;
+  opacity: 0.9;
   transition: opacity var(--duration-fast) var(--ease-out);
 }
 
@@ -490,7 +490,7 @@ button {
 }
 
 .search-pill input::placeholder {
-  color: var(--text-muted);
+  color: rgba(231, 243, 255, 0.76);
 }
 
 .stage-stats {
