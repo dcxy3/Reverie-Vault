@@ -80,6 +80,8 @@ export interface ReadingItem {
   lastReadChapter?: string;
   lastReadAt?: string;
   totalReadingSeconds?: number;
+  coverUrl?: string;
+  coverSource?: string;
 }
 
 export type PickedReadingItem = Omit<ReadingItem, "id" | "importedAt">;
@@ -87,6 +89,15 @@ export type PickedReadingItem = Omit<ReadingItem, "id" | "importedAt">;
 export interface ReadingTextDocument {
   title: string;
   content: string;
+}
+
+export interface ReadingCoverCandidate {
+  id: string;
+  title: string;
+  source: string;
+  imageUrl: string;
+  score: number;
+  reason: string;
 }
 
 export interface CoverCandidate {
@@ -120,6 +131,7 @@ export interface LauncherApi {
   saveReadingLibrary: (items: ReadingItem[]) => Promise<ReadingItem[]>;
   pickReadingItems: (kind: ReadingItemKind) => Promise<PickedReadingItem[]>;
   readNovel: (itemId: string) => Promise<ReadingTextDocument>;
+  findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
   exportLibrary: (games: Game[]) => Promise<string>;
   importLibrary: () => Promise<Game[] | null>;
   pickLaunchFile: () => Promise<PickedLaunchFile | null>;

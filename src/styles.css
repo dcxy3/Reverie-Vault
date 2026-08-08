@@ -2028,6 +2028,11 @@ textarea:focus-visible {
 .reading-info-sheet dd { margin: 0; color: #f7fcff; font-size: 12px; text-align: right; }
 .reading-info-delete { display: inline-flex; align-items: center; gap: 8px; margin-top: 30px; padding: 10px 12px; border: 1px solid rgba(255, 151, 160, 0.45); border-radius: 7px; color: #ffe8ea; background: rgba(143, 35, 48, 0.3); font-size: 12px; font-weight: 700; }
 .reading-info-delete:hover { background: rgba(176, 49, 65, 0.55); }
+.reading-cover-search { margin-top: 18px; padding: 9px 11px; border: 1px solid rgba(185, 228, 255, 0.42); border-radius: 7px; color: #f3fbff; background: rgba(56, 122, 158, 0.38); font-size: 12px; font-weight: 700; }
+.reading-cover-candidates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; max-height: 250px; overflow-y: auto; }
+.reading-cover-candidates button { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border-radius: 5px; background: rgba(0,0,0,.25); }
+.reading-cover-candidates img, .local-shelf-cover img { width: 100%; height: 100%; object-fit: cover; }
+.reading-cover-candidates span { position: absolute; right: 0; bottom: 0; left: 0; padding: 4px; color: #fff; background: rgba(0,0,0,.65); font-size: 9px; }
 
 .local-shelf-cover {
   position: relative;

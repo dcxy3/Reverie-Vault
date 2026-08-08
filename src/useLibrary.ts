@@ -508,6 +508,14 @@ export function useLibrary() {
     return true;
   }
 
+  function setReadingCover(itemId: string, coverUrl: string, coverSource: string) {
+    setReadingItems((current) => {
+      const next = current.map((item) => item.id === itemId ? { ...item, coverUrl, coverSource } : item);
+      void window.galLauncher.saveReadingLibrary(next);
+      return next;
+    });
+  }
+
   const counts = {
     total: games.length,
     active: games.filter((game) => game.status === "进行中").length,
@@ -591,6 +599,7 @@ export function useLibrary() {
     , saveReadingProgress
     , addReadingTime
     , removeReadingItem
+    , setReadingCover
   };
 }
 
