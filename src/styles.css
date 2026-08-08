@@ -1944,11 +1944,17 @@ textarea:focus-visible {
   display: grid;
   gap: 9px;
   min-width: 0;
+  color: inherit;
+  text-align: left;
   transition: transform var(--duration-fast) var(--ease-out);
 }
 
 .local-shelf-card:hover {
   transform: translateY(-7px) scale(1.025);
+}
+
+.local-shelf-card.is-readable {
+  cursor: pointer;
 }
 
 .local-shelf-cover {
@@ -2012,4 +2018,80 @@ textarea:focus-visible {
   margin-top: 3px;
   color: var(--text-muted);
   font-size: 11px;
+}
+
+/* --- Local light-novel reader --- */
+.local-reader {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 76px max(32px, 8vw) 48px;
+  overflow-y: auto;
+  background: rgba(5, 14, 24, 0.54);
+  backdrop-filter: blur(26px) saturate(0.78);
+  animation: local-reader-rise 300ms var(--ease-out) both;
+}
+
+@keyframes local-reader-rise {
+  from { opacity: 0; transform: translateY(26px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.local-reader-exit {
+  position: fixed;
+  top: 26px;
+  left: max(28px, 4vw);
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid rgba(223, 243, 255, 0.45);
+  border-radius: 8px;
+  color: #f8fcff;
+  background: rgba(13, 36, 54, 0.66);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.local-reader-exit:hover {
+  background: rgba(67, 136, 174, 0.78);
+}
+
+.local-reader-page {
+  width: min(100%, 780px);
+  padding: clamp(30px, 5vw, 58px) clamp(24px, 6vw, 72px);
+  border: 1px solid rgba(233, 247, 255, 0.3);
+  border-radius: 18px;
+  color: #f8fcff;
+  background: rgba(21, 38, 54, 0.5);
+  box-shadow: 0 24px 65px rgba(0, 0, 0, 0.36), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  text-align: center;
+}
+
+.local-reader-kicker {
+  color: #b9e4ff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+}
+
+.local-reader-page h2 {
+  margin: 10px 0 30px;
+  color: #ffffff;
+  font-size: clamp(24px, 3vw, 34px);
+  line-height: 1.3;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+}
+
+.local-reader-text {
+  display: grid;
+  gap: 18px;
+  color: rgba(247, 252, 255, 0.94);
+  font-family: "Noto Serif SC", "Noto Serif JP", "Microsoft YaHei", serif;
+  font-size: 17px;
+  line-height: 2;
 }

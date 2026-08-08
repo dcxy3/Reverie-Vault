@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("galLauncher", {
   loadReadingLibrary: () => ipcRenderer.invoke("reader:load"),
   saveReadingLibrary: (items) => ipcRenderer.invoke("reader:save", items),
   pickReadingItems: (kind) => ipcRenderer.invoke("dialog:pickReadingItems", kind),
+  readNovel: (itemId) => ipcRenderer.invoke("reader:readNovel", itemId),
   loadLibrary: () => ipcRenderer.invoke("library:load"),
   saveLibrary: (games) => ipcRenderer.invoke("library:save", games),
   pickLaunchFile: () => ipcRenderer.invoke("dialog:pickLaunchFile"),

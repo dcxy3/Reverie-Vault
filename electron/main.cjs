@@ -2109,6 +2109,15 @@ ipcMain.handle("reader:load", () => readReadingLibrary());
 
 ipcMain.handle("reader:save", (_event, items) => writeReadingLibrary(items));
 
+ipcMain.handle("reader:readNovel", (_event, itemId) => {
+  const item = readReadingLibrary().find((entry) => entry.id === itemId && entry.kind === "novel");
+  if (!item) throw new Error("Reading item was not found");
+  if (item.format !== "TXT") throw new Error("Only TXT light novels can be read in the current version");
+  const stat = fs.statSync(item.filePath);
+  if (stat.size > 8 * 1024 * 1024) throw new Error("The text file is too large to open");
+  return { title: item.title, content: fs.readFileSync(item.filePath, "utf8") };
+});
+
 ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
   const isManga = kind === "manga";
   const result = await dialog.showOpenDialog(mainWindow, {

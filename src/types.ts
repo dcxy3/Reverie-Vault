@@ -80,6 +80,11 @@ export interface ReadingItem {
 
 export type PickedReadingItem = Omit<ReadingItem, "id" | "importedAt">;
 
+export interface ReadingTextDocument {
+  title: string;
+  content: string;
+}
+
 export interface CoverCandidate {
   id: string;
   title: string;
@@ -110,6 +115,7 @@ export interface LauncherApi {
   loadReadingLibrary: () => Promise<ReadingItem[]>;
   saveReadingLibrary: (items: ReadingItem[]) => Promise<ReadingItem[]>;
   pickReadingItems: (kind: ReadingItemKind) => Promise<PickedReadingItem[]>;
+  readNovel: (itemId: string) => Promise<ReadingTextDocument>;
   exportLibrary: (games: Game[]) => Promise<string>;
   importLibrary: () => Promise<Game[] | null>;
   pickLaunchFile: () => Promise<PickedLaunchFile | null>;
