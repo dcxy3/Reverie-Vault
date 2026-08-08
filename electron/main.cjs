@@ -2113,14 +2113,22 @@ async function findReadingCoverCandidates(item) {
     if (!imageUrl) return;
     candidates.push({ id: crypto.createHash("sha1").update(`${source}:${imageUrl}`).digest("hex"), title: title || query, source, imageUrl, score, reason });
   };
-  const [apiResult, webResult, moegirlResult] = await Promise.allSettled([
+  const [apiResult, webResult, moegirlResult, aniListResult, mangaDexResult] = await Promise.allSettled([
     fetch("https://api.bgm.tv/v0/search/subjects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keyword: query, filter: { type: [1] }, sort: "match" }), signal: AbortSignal.timeout(8000) }).then(async (response) => response.ok ? (await response.json()).data || [] : []),
     fetch(`https://bgm.tv/subject_search/${encodeURIComponent(query)}?cat=1`, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(9000) }).then(async (response) => response.ok ? parseBangumiSearchItems(await response.text(), query) : []),
-    fetch(`https://zh.moegirl.org.cn/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=5&prop=pageimages&piprop=original|thumbnail&pithumbsize=600&format=json`, { headers: { "User-Agent": "Gal Launcher/0.3 local reader" }, signal: AbortSignal.timeout(9000) }).then(async (response) => response.ok ? await response.json() : {})
+    fetch(`https://zh.moegirl.org.cn/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=5&prop=pageimages&piprop=original|thumbnail&pithumbsize=600&format=json`, { headers: { "User-Agent": "Gal Launcher/0.3 local reader" }, signal: AbortSignal.timeout(9000) }).then(async (response) => response.ok ? await response.json() : {}),
+    fetch("https://graphql.anilist.co", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: "query ($search: String!) { Page(perPage: 5) { media(search: $search, type: MANGA) { title { native romaji english } format coverImage { large } } } }", variables: { search: query } }), signal: AbortSignal.timeout(9000) }).then(async (response) => response.ok ? (await response.json()).data?.Page?.media || [] : []),
+    fetch(`https://api.mangadex.org/manga?title=${encodeURIComponent(query)}&limit=5&includes[]=cover_art`, { signal: AbortSignal.timeout(9000) }).then(async (response) => response.ok ? (await response.json()).data || [] : [])
   ]);
   if (apiResult.status === "fulfilled") for (const entry of apiResult.value.slice(0, 5)) add("Bangumi API", entry.name_cn || entry.name, entry.images?.large || entry.images?.common, 90, "Bangumi 图书/漫画条目");
   if (webResult.status === "fulfilled") for (const entry of webResult.value.slice(0, 5)) add("Bangumi 搜索", entry.title || entry.subtitle, entry.coverUrl, 84 + entry.confidence * 10, "Bangumi 公开搜索结果");
   if (moegirlResult.status === "fulfilled") for (const entry of Object.values(moegirlResult.value?.query?.pages || {})) add("萌娘百科", entry.title, entry.original?.source || entry.thumbnail?.source, 70, "萌娘百科公开页面图片");
+  if (aniListResult.status === "fulfilled") for (const entry of aniListResult.value) add("AniList", entry.title?.native || entry.title?.romaji || entry.title?.english, entry.coverImage?.large, entry.format === "NOVEL" ? 82 : 76, `AniList ${entry.format || "MANGA"} 条目`);
+  if (mangaDexResult.status === "fulfilled") for (const entry of mangaDexResult.value) {
+    const cover = entry.relationships?.find((relationship) => relationship.type === "cover_art");
+    const fileName = cover?.attributes?.fileName;
+    if (fileName) add("MangaDex", Object.values(entry.attributes?.title || {})[0], `https://uploads.mangadex.org/covers/${entry.id}/${fileName}.512.jpg`, 74, "MangaDex 漫画条目");
+  }
   const seen = new Set();
   return candidates.filter((candidate) => !seen.has(candidate.imageUrl) && seen.add(candidate.imageUrl)).sort((a, b) => b.score - a.score).slice(0, 12);
 }
