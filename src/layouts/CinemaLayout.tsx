@@ -44,6 +44,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
     importBackup,
     openContextMenu
     , importReadingItems
+    , saveReadingProgress
   } = lib;
 
   return (
@@ -184,7 +185,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
             </div>
           </section>
         ) : viewMode === "reading" ? (
-          <LocalShelf items={readingItems} onImport={importReadingItems} />
+          <LocalShelf items={readingItems} onImport={importReadingItems} onSaveProgress={saveReadingProgress} />
         ) : selected ? (
           <section className="feature">
             <div className="showcase-art">

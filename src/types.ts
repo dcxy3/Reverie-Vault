@@ -76,6 +76,9 @@ export interface ReadingItem {
   filePath: string;
   format: string;
   importedAt: string;
+  lastReadPage?: number;
+  lastReadChapter?: string;
+  lastReadAt?: string;
 }
 
 export type PickedReadingItem = Omit<ReadingItem, "id" | "importedAt">;
