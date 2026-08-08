@@ -1,5 +1,5 @@
 import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ReadingItem, ReadingItemKind, ReadingTextDocument } from "../types";
 
 type NovelPage = { chapter: string; paragraphs: string[] };
@@ -49,6 +49,7 @@ export function LocalShelf({
 }) {
   const [reader, setReader] = useState<ActiveReader | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
+  const readerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -71,6 +72,7 @@ export function LocalShelf({
     if (!reader) return;
     const page = reader.pages[pageIndex];
     onSaveProgress(reader.item.id, pageIndex, page.chapter);
+    readerRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [pageIndex, reader]);
 
   async function openNovel(item: ReadingItem) {
@@ -123,7 +125,7 @@ export function LocalShelf({
       )}
 
       {reader && activePage && (
-        <section className="local-reader" role="dialog" aria-modal="true" aria-label={reader.document.title}>
+        <section className="local-reader" ref={readerRef} role="dialog" aria-modal="true" aria-label={reader.document.title}>
           <button className="local-reader-exit" type="button" onClick={() => setReader(null)}><X size={18} />退出阅读</button>
           <article className="local-reader-page">
             <p className="local-reader-kicker">{activePage.chapter}</p>

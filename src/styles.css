@@ -2031,7 +2031,6 @@ textarea:focus-visible {
   overflow-y: auto;
   background: rgba(5, 14, 24, 0.54);
   backdrop-filter: blur(26px) saturate(0.78);
-  animation: local-reader-rise 300ms var(--ease-out) both;
 }
 
 @keyframes local-reader-rise {
@@ -2066,6 +2065,7 @@ textarea:focus-visible {
   padding: clamp(46px, 7vw, 92px) clamp(24px, 6vw, 72px);
   color: #f8fcff;
   text-align: center;
+  animation: local-reader-rise 300ms var(--ease-out) both;
 }
 
 .local-reader-kicker {
