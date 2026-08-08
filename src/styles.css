@@ -1935,22 +1935,34 @@ textarea:focus-visible {
 
 .local-shelf-wall {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
-  gap: 28px 22px;
-  padding: 28px 26px 50px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  align-content: start;
+  gap: 30px 26px;
+  padding: 42px 36px 64px;
 }
 
 .local-shelf-card {
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
   display: grid;
+  grid-template-rows: minmax(0, 1fr) 34px;
   gap: 9px;
+  width: 100%;
   min-width: 0;
+  padding: 0;
+  border: 0;
   color: inherit;
+  background: transparent;
   text-align: left;
-  transition: transform var(--duration-fast) var(--ease-out);
+  transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y));
+  transform-style: preserve-3d;
+  will-change: transform;
+  transition: transform 100ms var(--ease-out);
 }
 
 .local-shelf-card:hover {
-  transform: translateY(-7px) scale(1.025);
+  z-index: 2;
+  transform: perspective(900px) rotateX(var(--tilt-x)) rotateY(var(--tilt-y)) translateY(-10px);
 }
 
 .local-shelf-card.is-readable {
@@ -2014,6 +2026,8 @@ textarea:focus-visible {
 .reading-info-sheet dl div { display: flex; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid rgba(225, 244, 255, 0.12); }
 .reading-info-sheet dt { color: rgba(218, 238, 252, 0.68); font-size: 12px; }
 .reading-info-sheet dd { margin: 0; color: #f7fcff; font-size: 12px; text-align: right; }
+.reading-info-delete { display: inline-flex; align-items: center; gap: 8px; margin-top: 30px; padding: 10px 12px; border: 1px solid rgba(255, 151, 160, 0.45); border-radius: 7px; color: #ffe8ea; background: rgba(143, 35, 48, 0.3); font-size: 12px; font-weight: 700; }
+.reading-info-delete:hover { background: rgba(176, 49, 65, 0.55); }
 
 .local-shelf-cover {
   position: relative;
@@ -2068,14 +2082,22 @@ textarea:focus-visible {
   white-space: nowrap;
 }
 
+.local-shelf-meta {
+  height: 34px;
+  overflow: hidden;
+}
+
 .local-shelf-meta strong {
   font-size: 13px;
+  color: #ffffff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
 }
 
 .local-shelf-meta span {
   margin-top: 3px;
-  color: var(--text-muted);
+  color: #e4f3ff;
   font-size: 11px;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
 }
 
 /* --- Local light-novel reader --- */

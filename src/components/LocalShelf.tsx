@@ -1,4 +1,4 @@
-import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, Play, SlidersHorizontal, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, Play, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReadingItem, ReadingItemKind, ReadingTextDocument } from "../types";
 
@@ -43,11 +43,12 @@ function formatReadingTime(seconds = 0) {
   return hours ? `${hours} 小时 ${minutes} 分钟` : `${minutes} 分钟`;
 }
 
-export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime }: {
+export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, onRemoveItem }: {
   items: ReadingItem[];
   onImport: (kind: ReadingItemKind) => void;
   onSaveProgress: (itemId: string, page: number, chapter: string) => void;
   onAddReadingTime: (itemId: string, seconds: number) => void;
+  onRemoveItem: (item: ReadingItem) => boolean;
 }) {
   const [reader, setReader] = useState<ActiveReader | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
@@ -120,7 +121,14 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime }
         <div className="local-shelf-wall">
           {items.map((item) => {
             const Icon = item.kind === "manga" ? Image : FileText;
-            return <button className={`local-shelf-card ${selectedItem?.id === item.id ? "selected" : ""}`} key={item.id} type="button" onClick={() => setSelectedItem(item)} title={item.title}>
+            return <button className={`local-shelf-card ${selectedItem?.id === item.id ? "selected" : ""}`} key={item.id} type="button" onClick={() => setSelectedItem(item)} title={item.title}
+              onMouseMove={(event) => {
+                const card = event.currentTarget;
+                const bounds = card.getBoundingClientRect();
+                card.style.setProperty("--tilt-x", `${-((event.clientY - bounds.top) / bounds.height - 0.5) * 60}deg`);
+                card.style.setProperty("--tilt-y", `${((event.clientX - bounds.left) / bounds.width - 0.5) * 60}deg`);
+              }}
+              onMouseLeave={(event) => { event.currentTarget.style.removeProperty("--tilt-x"); event.currentTarget.style.removeProperty("--tilt-y"); }}>
               <div className={`local-shelf-cover ${item.kind === "manga" ? "manga-a" : "novel-a"}`}><Icon size={34} /><span>{item.kind === "manga" ? "漫画" : "轻小说"}</span></div>
               <div className="local-shelf-meta"><strong>{item.title}</strong><span>{item.lastReadChapter ? `读至 ${item.lastReadChapter}` : `${item.format} · 已导入`}</span></div>
             </button>;
@@ -147,6 +155,12 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime }
             <div><dt>阅读进度</dt><dd>{selectedItem.lastReadChapter || "尚未开始"}</dd></div>
             <div><dt>导入时间</dt><dd>{new Date(selectedItem.importedAt).toLocaleDateString()}</dd></div>
           </dl>
+          <button className="reading-info-delete" type="button" onClick={() => {
+            if (onRemoveItem(selectedItem)) {
+              setIsInfoOpen(false);
+              setSelectedItem(null);
+            }
+          }}><Trash2 size={16} />从书架移除</button>
         </aside>
       )}
 

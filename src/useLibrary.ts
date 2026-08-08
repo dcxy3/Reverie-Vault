@@ -498,6 +498,16 @@ export function useLibrary() {
     });
   }
 
+  function removeReadingItem(item: ReadingItem) {
+    if (!confirm(`从书架中移除「${item.title}」？不会删除硬盘上的本地文件。`)) return false;
+    setReadingItems((current) => {
+      const next = current.filter((entry) => entry.id !== item.id);
+      void window.galLauncher.saveReadingLibrary(next);
+      return next;
+    });
+    return true;
+  }
+
   const counts = {
     total: games.length,
     active: games.filter((game) => game.status === "进行中").length,
@@ -580,6 +590,7 @@ export function useLibrary() {
     , importReadingItems
     , saveReadingProgress
     , addReadingTime
+    , removeReadingItem
   };
 }
 
