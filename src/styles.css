@@ -969,9 +969,12 @@ button {
   grid-auto-flow: row;
   gap: 30px 26px;
   min-height: 0;
+  /* Leave room for the card's 3D tilt, lift, outline, and shadow.  The
+     scrolling viewport still clips at its own boundary, so edge cards need a
+     safe inset on every side rather than being flush against it. */
   overflow-x: hidden;
   overflow-y: auto;
-  padding: 20px 24px 40px 0;
+  padding: 42px 36px 64px;
   scrollbar-width: thin;
   scrollbar-color: rgba(200, 215, 235, 0.15) transparent;
 }
