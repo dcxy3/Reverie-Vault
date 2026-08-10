@@ -1,6 +1,6 @@
 # Privacy
 
-Gal Launcher is a local-first desktop launcher.
+Reverie Vault is a local-first desktop launcher.
 
 ## Stored Locally
 

@@ -1,6 +1,6 @@
 # Release Checklist
 
-Use this checklist before publishing a new Gal Launcher release.
+Use this checklist before publishing a new Reverie Vault release.
 
 ## Repository
 
@@ -20,7 +20,7 @@ Use this checklist before publishing a new Gal Launcher release.
 Fast review build:
 
 ```powershell
-Stop-Process -Name "Gal Launcher" -Force -ErrorAction SilentlyContinue
+Stop-Process -Name "Reverie Vault" -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 npm run dist
 ```
@@ -34,14 +34,14 @@ npm run build && electron-builder --win dir
 Review executable:
 
 ```text
-release/win-unpacked/Gal Launcher.exe
+release/win-unpacked/Reverie Vault.exe
 ```
 
 Do not run `npm run dist:portable` for the normal review path. The portable build compresses the full Electron runtime into a single exe and is much slower.
 
 ## Manual QA
 
-- [ ] App opens from `release/win-unpacked/Gal Launcher.exe`.
+- [ ] App opens from `release/win-unpacked/Reverie Vault.exe`.
 - [ ] Add game dialog works.
 - [ ] Launching a game increments play count.
 - [ ] Play time is recorded after the game exits.
@@ -62,8 +62,8 @@ Do not run `npm run dist:portable` for the normal review path. The portable buil
 ## GitHub Release
 
 - [ ] Create a version tag, for example `v0.3.0`.
-- [ ] Zip `release/win-unpacked` as `Gal-Launcher-win-unpacked.zip`.
-- [ ] Attach `Gal-Launcher-win-unpacked.zip` for normal users.
+- [ ] Zip `release/win-unpacked` as `Reverie-Vault-win-unpacked.zip`.
+- [ ] Attach `Reverie-Vault-win-unpacked.zip` for normal users.
 - [ ] Only attach a portable exe/zip when a single-file build is explicitly needed.
 - [ ] Include a short changelog.
 - [ ] Mention Windows support status.
@@ -72,11 +72,11 @@ Do not run `npm run dist:portable` for the normal review path. The portable buil
 ## Recommended Public Release Text
 
 ```text
-Gal Launcher v0.3.0
+Reverie Vault v0.3.0
 
 本版本重写了主题系统，新增 Arcade、Atelier、Aurora、Lumen Shelf 等多套独立界面。
 
-下载 Gal-Launcher-win-unpacked.zip 后解压，运行 win-unpacked/Gal Launcher.exe。
+下载 Reverie-Vault-win-unpacked.zip 后解压，运行 win-unpacked/Reverie Vault.exe。
 
 这是一个本地 Galgame / 视觉小说启动器，不包含任何游戏本体、破解或下载资源。
 如果 Windows 提示未知发布者，是因为当前版本尚未购买代码签名证书。

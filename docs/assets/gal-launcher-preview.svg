@@ -1,5 +1,5 @@
 <svg width="1280" height="720" viewBox="0 0 1280 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
-  <title id="title">Gal Launcher preview</title>
+  <title id="title">Reverie Vault preview</title>
   <desc id="desc">A stylized preview of a visual novel launcher with a cover wall and a launch page.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1280" y2="720" gradientUnits="userSpaceOnUse">
@@ -36,7 +36,7 @@
   <rect x="1032" y="103" width="86" height="34" rx="17" fill="#0B111A" opacity="0.52" stroke="#E2E8F0" stroke-opacity="0.14"/>
   <rect x="1132" y="103" width="62" height="34" rx="17" fill="#0B111A" opacity="0.52" stroke="#E2E8F0" stroke-opacity="0.14"/>
   <text x="178" y="229" fill="#E8EEF5" font-family="Inter,Segoe UI,sans-serif" font-size="18" font-weight="700" opacity="0.72">Visual Novel Library</text>
-  <text x="178" y="303" fill="#FFFFFF" font-family="Inter,Segoe UI,sans-serif" font-size="66" font-weight="850">Gal Launcher</text>
+  <text x="178" y="303" fill="#FFFFFF" font-family="Inter,Segoe UI,sans-serif" font-size="66" font-weight="850">Reverie Vault</text>
   <text x="180" y="350" fill="#D6E0EA" font-family="Inter,Segoe UI,sans-serif" font-size="24" font-weight="500" opacity="0.78">Steam-like local launcher for galgames</text>
   <rect x="178" y="406" width="154" height="58" rx="29" fill="url(#accent)"/>
   <polygon points="233,425 233,445 250,435" fill="#101820"/>

@@ -4,7 +4,7 @@
   "private": true,
   "description": "A local Galgame launcher for Windows.",
   "main": "electron/main.cjs",
-  "author": "Gal Launcher",
+  "author": "Reverie Vault",
   "license": "MIT",
   "homepage": "https://github.com/KamiNeko-pre/gal-launcher#readme",
   "repository": {
@@ -34,8 +34,8 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "build": {
-    "appId": "local.gal-launcher.app",
-    "productName": "Gal Launcher",
+    "appId": "local.reverie-vault.app",
+    "productName": "Reverie Vault",
     "directories": {
       "output": "release"
     },
@@ -44,6 +44,7 @@
     "files": [
       "dist/**/*",
       "electron/**/*",
+      "build/electron-icon.png",
       "ciallo.mp3",
       "package.json"
     ],
@@ -61,7 +62,7 @@
       ]
     },
     "portable": {
-      "artifactName": "Gal Launcher.exe"
+      "artifactName": "Reverie Vault.exe"
     }
   },
   "dependencies": {

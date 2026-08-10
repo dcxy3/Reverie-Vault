@@ -20,6 +20,7 @@ import { formatPlayTime } from "../utils";
 import type { LibraryController } from "../useLibrary";
 import { LocalShelf } from "../components/LocalShelf";
 import { MusicPlayer } from "../components/MusicPlayer";
+import reverieVaultIcon from "../assets/reverie-vault-icon.png";
 
 function mysteryRandom(seed: number) {
   const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
@@ -145,7 +146,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
       <div className="rail-reveal" aria-hidden="true" />
       <aside className={`rail ${isChromePinned ? "is-pinned" : ""}`}>
         <div className="rail-logo">
-          <Gamepad2 size={24} />
+          <img src={reverieVaultIcon} alt="Reverie Vault" />
         </div>
         <button className={viewMode === "library" && statusFilter === "全部" ? "rail-button active" : "rail-button"} aria-label="全部游戏" onClick={() => { setViewMode("library"); setStatusFilter("全部"); }}>
           <Home size={20} />

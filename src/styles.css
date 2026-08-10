@@ -1,5 +1,5 @@
 /* ================================================
-   Gal Launcher — Immersive Gallery Design System
+   Reverie Vault — Immersive Gallery Design System
    ================================================ */
 
 /* --- CSS Reset & Variables --- */
@@ -259,6 +259,14 @@ button {
   backdrop-filter: blur(var(--glass-blur));
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2), 0 0 16px var(--accent-soft);
   transition: box-shadow var(--duration-fast) var(--ease-out);
+}
+
+.rail-logo img {
+  display: block;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  object-fit: cover;
 }
 
 .rail:hover .rail-logo {

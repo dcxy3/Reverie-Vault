@@ -4,6 +4,9 @@ const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn, execFile } = require("node:child_process");
 
+// Keep existing libraries and settings available after the visible product rename.
+app.setPath("userData", path.join(app.getPath("appData"), "gal-launcher"));
+
   const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
   let mainWindow;
   const activePlaySessions = new Map();
@@ -115,7 +118,8 @@ function createWindow() {
     minWidth: 1040,
     minHeight: 680,
     backgroundColor: "#121316",
-    title: "Gal Launcher",
+    title: "Reverie Vault",
+    icon: path.join(app.getAppPath(), "build", "electron-icon.png"),
     titleBarStyle: "hiddenInset",
     autoHideMenuBar: true,
     webPreferences: {
@@ -262,7 +266,7 @@ function configureReadingWatchers(items) {
 
 function backupPayload(games) {
   return {
-    app: "Gal Launcher",
+    app: "Reverie Vault",
     version: 1,
     exportedAt: new Date().toISOString(),
     games: Array.isArray(games) ? games : readLibrary()
@@ -2303,7 +2307,7 @@ async function findReadingCoverCandidates(item) {
   const [apiResult, webResult, moegirlResult, aniListResult, mangaDexResult] = await Promise.allSettled([
     fetch("https://api.bgm.tv/v0/search/subjects", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ keyword: query, filter: { type: [1] }, sort: "match" }), signal: AbortSignal.timeout(8000) }).then(async (response) => response.ok ? (await response.json()).data || [] : []),
     fetch(`https://bgm.tv/subject_search/${encodeURIComponent(query)}?cat=1`, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(9000) }).then(async (response) => response.ok ? parseBangumiSearchItems(await response.text(), query) : []),
-    fetch(`https://zh.moegirl.org.cn/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=5&prop=pageimages&piprop=original|thumbnail&pithumbsize=600&format=json`, { headers: { "User-Agent": "Gal Launcher/0.3 local reader" }, signal: AbortSignal.timeout(9000) }).then(async (response) => response.ok ? await response.json() : {}),
+    fetch(`https://zh.moegirl.org.cn/api.php?action=query&generator=search&gsrsearch=${encodeURIComponent(query)}&gsrlimit=5&prop=pageimages&piprop=original|thumbnail&pithumbsize=600&format=json`, { headers: { "User-Agent": "Reverie Vault/0.3 local reader" }, signal: AbortSignal.timeout(9000) }).then(async (response) => response.ok ? await response.json() : {}),
     fetch("https://graphql.anilist.co", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: "query ($search: String!) { Page(perPage: 5) { media(search: $search, type: MANGA) { title { native romaji english } format coverImage { large } } } }", variables: { search: query } }), signal: AbortSignal.timeout(9000) }).then(async (response) => response.ok ? (await response.json()).data?.Page?.media || [] : []),
     fetch(`https://api.mangadex.org/manga?title=${encodeURIComponent(query)}&limit=5&includes[]=cover_art`, { signal: AbortSignal.timeout(9000) }).then(async (response) => response.ok ? (await response.json()).data || [] : [])
   ]);
@@ -2510,7 +2514,7 @@ ipcMain.handle("game:lookupBangumiRating", async (_event, game) => lookupBangumi
 ipcMain.handle("library:export", async (_event, games) => {
   const result = await dialog.showSaveDialog(mainWindow, {
     title: "Export library backup",
-    defaultPath: `gal-launcher-backup-${new Date().toISOString().slice(0, 10)}.json`,
+    defaultPath: `reverie-vault-backup-${new Date().toISOString().slice(0, 10)}.json`,
     filters: [{ name: "JSON", extensions: ["json"] }]
   });
   if (result.canceled || !result.filePath) return "";

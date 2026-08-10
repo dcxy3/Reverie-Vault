@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for improving Gal Launcher.
+Thanks for improving Reverie Vault.
 
 ## Development
 

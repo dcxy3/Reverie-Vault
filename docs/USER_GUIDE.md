@@ -1,4 +1,4 @@
-# Gal Launcher 使用教程
+# Reverie Vault 使用教程
 
 这是一份给普通用户看的教程。你不需要会编程。
 
@@ -7,7 +7,7 @@
 进入 GitHub 的 **Releases** 页面，下载最新版里的：
 
 ```text
-Gal Launcher.exe
+Reverie Vault.exe
 ```
 
 下载后双击打开。

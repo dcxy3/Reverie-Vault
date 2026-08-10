@@ -1,6 +1,6 @@
 # Roadmap
 
-Gal Launcher is still young. The goal is to become a polished local launcher for visual novels and galgames.
+Reverie Vault is still young. The goal is to become a polished local launcher for visual novels and galgames.
 
 ## Near Term
 

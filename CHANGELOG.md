@@ -2,7 +2,7 @@
 
 ## 0.3.0
 
-主题系统大更新。这个版本把 Gal Launcher 从单一沉浸式启动页扩展为多套独立前端主题。
+主题系统大更新。这个版本把 Reverie Vault 从单一沉浸式启动页扩展为多套独立前端主题。
 
 ### Added
 
@@ -21,7 +21,7 @@
 
 ### Notes
 
-- 推荐发布附件为 `Gal-Launcher-win-unpacked.zip`。
+- 推荐发布附件为 `Reverie-Vault-win-unpacked.zip`。
 - 审核和快速验证时使用 `npm run dist`，不要默认构建 portable 单文件。
 
 ## 0.2.3

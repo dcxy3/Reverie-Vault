@@ -33,13 +33,13 @@ jobs:
         run: npm run dist:portable
 
       - name: Zip portable exe
-        run: Compress-Archive -Path "release/Gal Launcher.exe" -DestinationPath "release/Gal-Launcher.zip"
+        run: Compress-Archive -Path "release/Reverie Vault.exe" -DestinationPath "release/Reverie-Vault.zip"
 
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag }}
           files: |
-            release/Gal-Launcher.zip
+            release/Reverie-Vault.zip
           draft: true
           prerelease: false

@@ -33,10 +33,10 @@ jobs:
       - name: Zip unpacked app
         shell: pwsh
         run: |
-          Compress-Archive -Path "release/win-unpacked/*" -DestinationPath "Gal-Launcher-win-unpacked.zip" -Force
+          Compress-Archive -Path "release/win-unpacked/*" -DestinationPath "Reverie-Vault-win-unpacked.zip" -Force
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Gal-Launcher-win-unpacked
-          path: Gal-Launcher-win-unpacked.zip
+          name: Reverie-Vault-win-unpacked
+          path: Reverie-Vault-win-unpacked.zip

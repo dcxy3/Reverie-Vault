@@ -20,7 +20,7 @@ body:
     attributes:
       label: Steps to reproduce
       placeholder: |
-        1. Open Gal Launcher
+        1. Open Reverie Vault
         2. Click ...
         3. See error
     validations:

@@ -1,6 +1,6 @@
 # Data Sources
 
-Gal Launcher can search third-party sources to help users fill metadata and find cover/background candidates. These integrations should be treated as optional helpers, not as bundled content.
+Reverie Vault can search third-party sources to help users fill metadata and find cover/background candidates. These integrations should be treated as optional helpers, not as bundled content.
 
 ## Principles
 

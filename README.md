@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="docs/assets/screenshots/hero.png" alt="Gal Launcher" width="960">
+  <img src="docs/assets/screenshots/hero.png" alt="Reverie Vault" width="960">
 </p>
 
-<h1 align="center">Gal Launcher</h1>
+<h1 align="center">Reverie Vault</h1>
 
 <p align="center">
   <strong>让本地 Galgame / 视觉小说收藏也拥有漂亮、可追踪、可切换主题的启动体验。</strong>
@@ -28,7 +28,7 @@
   <img alt="License" src="https://img.shields.io/badge/license-MIT-d8e0e8">
 </p>
 
-> **免责声明 / Disclaimer**：Gal Launcher 不提供游戏本体、下载资源、破解、补丁或 DRM 绕过工具。它只管理你已经安装在本地的游戏。
+> **免责声明 / Disclaimer**：Reverie Vault 不提供游戏本体、下载资源、破解、补丁或 DRM 绕过工具。它只管理你已经安装在本地的游戏。
 
 ---
 
@@ -36,7 +36,7 @@
 
 硬盘里一堆 `game.exe`、`SiglusEngine.exe`、`start.exe`、`launcher.exe`，时间一久就很难分清哪个文件夹是哪部作品，想重温也找不到入口。
 
-Gal Launcher 把这些本地游戏整理成一个视觉小说专用启动器：
+Reverie Vault 把这些本地游戏整理成一个视觉小说专用启动器：
 
 - 给每个游戏匹配封面、横版背景、会社、发售日、标签和简介
 - 从 VNDB / Bangumi / Steam 等多个来源辅助搜索资料和图片候选
@@ -118,8 +118,8 @@ Gal Launcher 把这些本地游戏整理成一个视觉小说专用启动器：
 ## 快速开始
 
 ```text
-1. 下载 Gal-Launcher-vX.X.X.zip
-2. 解压后打开 Gal Launcher.exe
+1. 下载 Reverie-Vault-vX.X.X.zip
+2. 解压后打开 Reverie Vault.exe
 3. 点击添加按钮，选择游戏启动文件
 4. 等待自动资料搜索，或手动选择候选资料
 5. 点击封面进入启动页，一键启动游戏
@@ -160,7 +160,7 @@ Gal Launcher 把这些本地游戏整理成一个视觉小说专用启动器：
 推荐下载 zip 包，解压后运行：
 
 ```text
-win-unpacked/Gal Launcher.exe
+win-unpacked/Reverie Vault.exe
 ```
 
 如果 Windows 提示“未知发布者”，这是因为当前版本没有代码签名证书。确认文件来自本仓库 Release 后继续运行即可。
@@ -185,7 +185,7 @@ win-unpacked/Gal Launcher.exe
 
 ## 对比
 
-| | Gal Launcher | Playnite | Steam | 手动管理 |
+| | Reverie Vault | Playnite | Steam | 手动管理 |
 | --- | :---: | :---: | :---: | :---: |
 | Galgame / 视觉小说资料搜索 | 是 | 插件依赖 | 否 | 否 |
 | Bangumi 评分 | 是 | 否 | 否 | 否 |
@@ -207,7 +207,7 @@ npm run build
 快速打包审核版本：
 
 ```powershell
-Stop-Process -Name "Gal Launcher" -Force -ErrorAction SilentlyContinue
+Stop-Process -Name "Reverie Vault" -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 1
 npm run dist
 ```
@@ -215,7 +215,7 @@ npm run dist
 产物路径：
 
 ```text
-release/win-unpacked/Gal Launcher.exe
+release/win-unpacked/Reverie Vault.exe
 ```
 
 常规审核不需要跑 `npm run dist:portable`。portable 单文件会把 Electron 运行时压成一个 exe，耗时明显更久。
@@ -240,4 +240,4 @@ release/win-unpacked/Gal Launcher.exe
 
 ## License
 
-MIT © 2026 Gal Launcher
+MIT © 2026 Reverie Vault
