@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, session, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, safeStorage, session, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
@@ -9,6 +9,68 @@ const { spawn, execFile } = require("node:child_process");
   const activePlaySessions = new Map();
   const readingWatchers = new Map();
   const readingWatchTimers = new Map();
+  let neteaseApiModule;
+  let neteaseSessionCookie = "";
+
+  function getNeteaseApi() {
+    if (!neteaseApiModule) neteaseApiModule = require("@neteasecloudmusicapienhanced/api");
+    return neteaseApiModule;
+  }
+
+  function musicAuthPath() {
+    return path.join(app.getPath("userData"), "library", "netease-auth.json");
+  }
+
+  function readMusicCookie() {
+    if (neteaseSessionCookie) return neteaseSessionCookie;
+    try {
+      if (!safeStorage.isEncryptionAvailable()) return "";
+      const stored = JSON.parse(fs.readFileSync(musicAuthPath(), "utf8"));
+      neteaseSessionCookie = safeStorage.decryptString(Buffer.from(stored.encryptedCookie, "base64"));
+    } catch {
+      neteaseSessionCookie = "";
+    }
+    return neteaseSessionCookie;
+  }
+
+  function writeMusicCookie(cookie) {
+    neteaseSessionCookie = String(cookie || "");
+    const authPath = musicAuthPath();
+    if (!neteaseSessionCookie) {
+      try { fs.unlinkSync(authPath); } catch {}
+      return;
+    }
+    if (!safeStorage.isEncryptionAvailable()) return;
+    fs.mkdirSync(path.dirname(authPath), { recursive: true });
+    fs.writeFileSync(authPath, JSON.stringify({
+      encryptedCookie: safeStorage.encryptString(neteaseSessionCookie).toString("base64")
+    }), "utf8");
+  }
+
+  function musicBody(result) {
+    let body = result?.body ?? result ?? {};
+    while (body?.data && typeof body.data === "object" && !Array.isArray(body.data) && Object.keys(body).length <= 3 && body.data.code) body = body.data;
+    return body;
+  }
+
+  function musicProfile(body) {
+    const profile = body?.profile || body?.data?.profile || body?.account?.profile;
+    if (!profile?.userId) return null;
+    return { userId: String(profile.userId), nickname: String(profile.nickname || "网易云用户"), avatarUrl: String(profile.avatarUrl || "") };
+  }
+
+  async function getMusicSession() {
+    const cookie = readMusicCookie();
+    if (!cookie) return { loggedIn: false };
+    try {
+      const body = musicBody(await getNeteaseApi().login_status({ cookie, timestamp: Date.now() }));
+      const profile = musicProfile(body);
+      if (!profile) return { loggedIn: false };
+      return { loggedIn: true, profile };
+    } catch {
+      return { loggedIn: false };
+    }
+  }
 
   const domainQueues = new Map();
   function limitDomain(url, concurrency = 3) {
@@ -2155,6 +2217,77 @@ ipcMain.handle("window:readCialloAudio", () => {
   if (!fs.existsSync(audioPath)) throw new Error("Ciallo audio file was not found");
   const data = fs.readFileSync(audioPath);
   return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+});
+
+ipcMain.handle("music:getSession", () => getMusicSession());
+
+ipcMain.handle("music:createQr", async () => {
+  const api = getNeteaseApi();
+  const keyResult = musicBody(await api.login_qr_key({ timestamp: Date.now() }));
+  const key = keyResult?.unikey || keyResult?.data?.unikey || keyResult?.data?.data?.unikey;
+  if (!key) throw new Error("Unable to create the NetEase Cloud Music login key");
+  const qrResult = musicBody(await api.login_qr_create({ key, qrimg: true, timestamp: Date.now() }));
+  const qrimg = qrResult?.qrimg || qrResult?.data?.qrimg || qrResult?.data?.data?.qrimg;
+  if (!qrimg) throw new Error("Unable to create the NetEase Cloud Music QR code");
+  return { key, qrimg };
+});
+
+ipcMain.handle("music:checkQr", async (_event, key) => {
+  if (typeof key !== "string" || !key.trim()) throw new Error("The QR login key is invalid");
+  const result = await getNeteaseApi().login_qr_check({ key: key.trim(), timestamp: Date.now() });
+  const body = musicBody(result);
+  const code = Number(body?.code || body?.data?.code || 0);
+  const message = String(body?.message || body?.data?.message || "");
+  if (code !== 803) return { code, message, loggedIn: false };
+  const cookie = body?.cookie || body?.data?.cookie || (Array.isArray(result?.cookie) ? result.cookie.join("; ") : "");
+  if (!cookie) throw new Error("Login succeeded but no session credential was returned");
+  writeMusicCookie(cookie);
+  return { code, message, ...(await getMusicSession()) };
+});
+
+ipcMain.handle("music:getLikedPlaylist", async () => {
+  const cookie = readMusicCookie();
+  const sessionState = await getMusicSession();
+  if (!cookie || !sessionState.loggedIn) throw new Error("Please log in to NetEase Cloud Music first");
+  const api = getNeteaseApi();
+  const playlistBody = musicBody(await api.user_playlist({ uid: sessionState.profile.userId, limit: 1000, cookie, timestamp: Date.now() }));
+  const playlists = playlistBody?.playlist || playlistBody?.data?.playlist || [];
+  const owned = playlists.filter((playlist) => String(playlist?.creator?.userId || playlist?.userId || "") === sessionState.profile.userId);
+  const liked = owned.find((playlist) => String(playlist?.name || "").includes("\u559c\u6b22\u7684\u97f3\u4e50")) || owned[0] || playlists[0];
+  if (!liked?.id) throw new Error("No playlist was found for this account");
+  const tracksBody = musicBody(await api.playlist_track_all({ id: liked.id, limit: 1000, cookie, timestamp: Date.now() }));
+  const songs = tracksBody?.songs || tracksBody?.data?.songs || [];
+  return {
+    id: String(liked.id),
+    name: String(liked.name || "\u6211\u559c\u6b22\u7684\u97f3\u4e50"),
+    coverUrl: String(liked.coverImgUrl || ""),
+    trackCount: Number(liked.trackCount || songs.length),
+    tracks: songs.map((song) => ({
+      id: String(song.id),
+      name: String(song.name || "Unknown track"),
+      artists: (song.ar || song.artists || []).map((artist) => artist.name).filter(Boolean).join(" / "),
+      album: String(song.al?.name || song.album?.name || ""),
+      coverUrl: String(song.al?.picUrl || song.album?.picUrl || ""),
+      durationMs: Number(song.dt || song.duration || 0)
+    }))
+  };
+});
+
+ipcMain.handle("music:getSongUrl", async (_event, id) => {
+  const cookie = readMusicCookie();
+  if (!cookie) throw new Error("Please log in to NetEase Cloud Music first");
+  const body = musicBody(await getNeteaseApi().song_url_v1({ id: String(id), level: "standard", cookie, timestamp: Date.now() }));
+  const song = (body?.data || body?.songs || [])[0];
+  if (!song?.url) throw new Error("This track is unavailable due to membership, copyright, or regional restrictions");
+  return { url: String(song.url), type: String(song.type || ""), level: String(song.level || "standard") };
+});
+
+ipcMain.handle("music:logout", async () => {
+  const cookie = readMusicCookie();
+  if (cookie) {
+    try { await getNeteaseApi().logout({ cookie, timestamp: Date.now() }); } catch {}
+  }
+  writeMusicCookie("");
 });
 
 ipcMain.handle("library:save", (_event, games) => writeLibrary(games));

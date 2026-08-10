@@ -20,6 +20,12 @@ contextBridge.exposeInMainWorld("galLauncher", {
   toggleFullscreen: () => ipcRenderer.invoke("window:toggleFullscreen"),
   openCiallo: () => ipcRenderer.invoke("window:openCiallo"),
   readCialloAudio: () => ipcRenderer.invoke("window:readCialloAudio"),
+  getMusicSession: () => ipcRenderer.invoke("music:getSession"),
+  createMusicQr: () => ipcRenderer.invoke("music:createQr"),
+  checkMusicQr: (key) => ipcRenderer.invoke("music:checkQr", key),
+  getLikedMusicPlaylist: () => ipcRenderer.invoke("music:getLikedPlaylist"),
+  getMusicSongUrl: (id) => ipcRenderer.invoke("music:getSongUrl", id),
+  logoutMusic: () => ipcRenderer.invoke("music:logout"),
   onFullscreenChanged: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on("window:fullscreenChanged", listener);

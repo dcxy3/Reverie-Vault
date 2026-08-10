@@ -7,6 +7,7 @@ import {
   Library,
   Maximize,
   Minimize,
+  Music2,
   Pin,
   Play,
   Plus,
@@ -18,6 +19,7 @@ import {
 import { formatPlayTime } from "../utils";
 import type { LibraryController } from "../useLibrary";
 import { LocalShelf } from "../components/LocalShelf";
+import { MusicPlayer } from "../components/MusicPlayer";
 
 function mysteryRandom(seed: number) {
   const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
@@ -27,6 +29,7 @@ function mysteryRandom(seed: number) {
 export function CinemaLayout({ lib }: { lib: LibraryController }) {
   const [isChromePinned, setIsChromePinned] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [isMusicOpen, setIsMusicOpen] = React.useState(false);
   const [mysteryClickCount, setMysteryClickCount] = React.useState(0);
   const [mysterySpin, setMysterySpin] = React.useState(0);
   const [isMysteryLaunching, setIsMysteryLaunching] = React.useState(false);
@@ -153,6 +156,9 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
         <button className={viewMode === "reading" ? "rail-button active" : "rail-button"} aria-label="本地书架" title="本地书架" onClick={() => { setViewMode("reading"); setIsInfoOpen(false); }}>
           <BookOpen size={20} />
         </button>
+        <button className={`rail-button ${isMusicOpen ? "active" : ""}`} aria-label="音乐播放器" title="音乐播放器" aria-pressed={isMusicOpen} onClick={() => setIsMusicOpen((open) => !open)}>
+          <Music2 size={20} />
+        </button>
         <button className="rail-button" aria-label="导出备份" onClick={exportBackup}>
           <Download size={19} />
         </button>
@@ -178,6 +184,8 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
           <Plus size={20} />
         </button>
       </aside>
+
+      {isMusicOpen && <MusicPlayer onClose={() => setIsMusicOpen(false)} />}
 
       <main className="stage cinema-stage" style={viewMode !== "library" ? { gridTemplateRows: "60px minmax(0, 1fr)" } as React.CSSProperties : undefined}>
         <header className="stage-top">

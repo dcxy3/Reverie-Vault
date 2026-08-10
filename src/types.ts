@@ -150,6 +150,12 @@ export interface LauncherApi {
   toggleFullscreen: () => Promise<boolean>;
   openCiallo: () => Promise<void>;
   readCialloAudio: () => Promise<ArrayBuffer>;
+  getMusicSession: () => Promise<{ loggedIn: boolean; profile?: MusicProfile }>;
+  createMusicQr: () => Promise<{ key: string; qrimg: string }>;
+  checkMusicQr: (key: string) => Promise<{ code: number; message: string; loggedIn: boolean; profile?: MusicProfile }>;
+  getLikedMusicPlaylist: () => Promise<MusicPlaylist>;
+  getMusicSongUrl: (id: string) => Promise<{ url: string; type: string; level: string }>;
+  logoutMusic: () => Promise<void>;
   onFullscreenChanged: (callback: (payload: { fullscreen: boolean }) => void) => () => void;
   findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
   exportLibrary: (games: Game[]) => Promise<string>;
@@ -167,6 +173,29 @@ export interface LauncherApi {
   sampleButtonPalette: (path: string) => Promise<{ actionRgb: string; chromeRgb: string } | null>;
   launchGame: (game: Game) => Promise<LaunchResult>;
   onPlaySessionEnded: (callback: (event: PlaySessionEndedEvent) => void) => () => void;
+}
+
+export interface MusicProfile {
+  userId: string;
+  nickname: string;
+  avatarUrl: string;
+}
+
+export interface MusicTrack {
+  id: string;
+  name: string;
+  artists: string;
+  album: string;
+  coverUrl: string;
+  durationMs: number;
+}
+
+export interface MusicPlaylist {
+  id: string;
+  name: string;
+  coverUrl: string;
+  trackCount: number;
+  tracks: MusicTrack[];
 }
 
 declare global {
