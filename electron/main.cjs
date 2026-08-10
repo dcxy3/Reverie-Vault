@@ -2148,6 +2148,8 @@ ipcMain.handle("window:toggleFullscreen", () => {
   return mainWindow.isFullScreen();
 });
 
+ipcMain.handle("window:openCiallo", () => shell.openExternal("https://ciallo.cc/"));
+
 ipcMain.handle("library:save", (_event, games) => writeLibrary(games));
 
 async function findReadingCoverCandidates(item) {

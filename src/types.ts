@@ -148,6 +148,7 @@ export interface LauncherApi {
   onReadingContentChanged: (callback: (payload: { itemId: string }) => void) => () => void;
   onAltKeyChanged: (callback: (payload: { pressed: boolean }) => void) => () => void;
   toggleFullscreen: () => Promise<boolean>;
+  openCiallo: () => Promise<void>;
   onFullscreenChanged: (callback: (payload: { fullscreen: boolean }) => void) => () => void;
   findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
   exportLibrary: (games: Game[]) => Promise<string>;

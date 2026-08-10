@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld("galLauncher", {
     return () => ipcRenderer.removeListener("reader:altKeyChanged", listener);
   },
   toggleFullscreen: () => ipcRenderer.invoke("window:toggleFullscreen"),
+  openCiallo: () => ipcRenderer.invoke("window:openCiallo"),
   onFullscreenChanged: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on("window:fullscreenChanged", listener);

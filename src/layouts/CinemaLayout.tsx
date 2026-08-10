@@ -10,6 +10,7 @@ import {
   Pin,
   Play,
   Plus,
+  CircleQuestionMark,
   Search,
   SlidersHorizontal,
   Upload
@@ -21,7 +22,32 @@ import { LocalShelf } from "../components/LocalShelf";
 export function CinemaLayout({ lib }: { lib: LibraryController }) {
   const [isChromePinned, setIsChromePinned] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
+  const [mysteryPhase, setMysteryPhase] = React.useState<"idle" | "armed" | "launching">("idle");
+  const [mysteryBurst, setMysteryBurst] = React.useState(0);
+  const [showMysteryEffect, setShowMysteryEffect] = React.useState(false);
+  const mysteryTimerRef = React.useRef<number | null>(null);
   React.useEffect(() => window.galLauncher.onFullscreenChanged(({ fullscreen }) => setIsFullscreen(fullscreen)), []);
+  React.useEffect(() => () => { if (mysteryTimerRef.current !== null) window.clearTimeout(mysteryTimerRef.current); }, []);
+
+  function triggerMysteryButton() {
+    if (mysteryPhase === "launching") return;
+    if (mysteryPhase === "idle") {
+      setMysteryPhase("armed");
+      setMysteryBurst((value) => value + 1);
+      setShowMysteryEffect(true);
+      if (mysteryTimerRef.current !== null) window.clearTimeout(mysteryTimerRef.current);
+      mysteryTimerRef.current = window.setTimeout(() => setShowMysteryEffect(false), 5200);
+      return;
+    }
+    setMysteryPhase("launching");
+    if (mysteryTimerRef.current !== null) window.clearTimeout(mysteryTimerRef.current);
+    mysteryTimerRef.current = window.setTimeout(() => {
+      void window.galLauncher.openCiallo();
+      setMysteryPhase("idle");
+      setShowMysteryEffect(false);
+      mysteryTimerRef.current = null;
+    }, 1000);
+  }
   const {
     query, setQuery,
     statusFilter, setStatusFilter,
@@ -65,6 +91,10 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
       <div className="backdrop" style={{ backgroundImage: selectedImage ? `url("${selectedImage}")` : undefined }} />
       {fadingImage && <div className="backdrop fading" style={{ backgroundImage: `url("${fadingImage}")` }} />}
       <div className="backdrop-mask" />
+      {showMysteryEffect && <div className="ciallo-celebration" key={mysteryBurst} aria-hidden="true">
+        {Array.from({ length: 28 }, (_, index) => <span className="ciallo-text" key={`text-${index}`} style={{ "--ciallo-x": `${(index * 37) % 94 + 3}%`, "--ciallo-y": `${(index * 53) % 88 + 6}%`, "--ciallo-delay": `${(index % 9) * 0.11}s`, "--ciallo-angle": `${(index % 2 ? 1 : -1) * (8 + index % 17)}deg` } as React.CSSProperties}>Ciallo～(∠・ω&lt;)⌒★</span>)}
+        {Array.from({ length: 7 }, (_, burstIndex) => <span className="ciallo-firework" key={`firework-${burstIndex}`} style={{ "--firework-x": `${12 + (burstIndex * 17) % 78}%`, "--firework-y": `${12 + (burstIndex * 29) % 68}%`, "--firework-delay": `${0.18 + burstIndex * 0.3}s`, "--firework-color": ["#ff78c8", "#72ddff", "#ffe477", "#a88cff"][burstIndex % 4] } as React.CSSProperties}>{Array.from({ length: 12 }, (_, ray) => <i key={ray} style={{ "--ray": ray } as React.CSSProperties} />)}</span>)}
+      </div>}
 
       <div className="rail-reveal" aria-hidden="true" />
       <aside className={`rail ${isChromePinned ? "is-pinned" : ""}`}>
@@ -85,6 +115,9 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
         </button>
         <button className="rail-button" aria-label="恢复备份" onClick={importBackup}>
           <Upload size={19} />
+        </button>
+        <button className={`rail-button mystery ${mysteryPhase === "armed" ? "active" : ""} ${mysteryPhase === "launching" ? "launching" : ""}`} aria-label="神秘小按钮" title="神秘小按钮" onClick={triggerMysteryButton}>
+          <CircleQuestionMark size={20} />
         </button>
         <button
           className={`rail-button pin ${isChromePinned ? "active" : ""}`}
