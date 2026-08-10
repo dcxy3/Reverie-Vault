@@ -1,4 +1,4 @@
-import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImagePlus, Play, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImagePlus, ListTree, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind, ReadingTextDocument } from "../types";
 
@@ -117,6 +117,10 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
   }
 
   const activePage = reader?.pages[pageIndex];
+  const chapterEntries = reader?.pages.reduce<Array<{ title: string; pageIndex: number }>>((entries, page, index) => {
+    if (!entries.some((entry) => entry.title === page.chapter)) entries.push({ title: page.chapter, pageIndex: index });
+    return entries;
+  }, []) ?? [];
 
   return (
     <section className="local-shelf" aria-labelledby="local-shelf-title">
@@ -134,7 +138,10 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
         <div className="local-shelf-wall">
           {items.map((item) => {
             const Icon = item.kind === "manga" ? Image : FileText;
-            return <button className={`local-shelf-card ${selectedItem?.id === item.id ? "selected" : ""}`} key={item.id} type="button" onClick={() => setSelectedItem(item)} title={item.title}
+            return <button className={`local-shelf-card ${selectedItem?.id === item.id ? "selected" : ""}`} key={item.id} type="button" onClick={() => {
+              if (selectedItem?.id === item.id) void openNovel(item);
+              else setSelectedItem(item);
+            }} title={item.title}
               onMouseMove={(event) => {
                 const card = event.currentTarget;
                 const bounds = card.getBoundingClientRect();
@@ -152,7 +159,6 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
       {selectedItem && (
         <div className="reading-launch-actions">
           <button className="reading-settings-button" type="button" onClick={() => setIsInfoOpen(true)} aria-label="阅读设置"><SlidersHorizontal size={20} /></button>
-          <button className="reading-start-button" type="button" onClick={() => void openNovel(selectedItem)} disabled={selectedItem.kind !== "novel"}><Play size={20} fill="currentColor" />开始阅读</button>
         </div>
       )}
 
@@ -186,6 +192,15 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
 
       {reader && activePage && (
         <section className="local-reader" role="dialog" aria-modal="true" aria-label={reader.document.title}>
+          <aside className="local-reader-chapter-rail" aria-label="章节目录">
+            <div className="local-reader-chapter-panel">
+              <p>章节目录</p>
+              <div className="local-reader-chapter-list">
+                {chapterEntries.map((entry) => <button className={activePage.chapter === entry.title ? "active" : ""} type="button" key={`${entry.title}-${entry.pageIndex}`} onClick={() => setPageIndex(entry.pageIndex)}>{entry.title}</button>)}
+              </div>
+            </div>
+            <div className="local-reader-chapter-handle"><ListTree size={20} /><span>目录</span></div>
+          </aside>
           <button className="local-reader-exit" type="button" onClick={closeReader}><X size={18} />退出阅读</button>
           <div className="local-reader-scroll" ref={readerScrollRef}>
             <article className="local-reader-page">
