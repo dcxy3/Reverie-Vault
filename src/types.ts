@@ -158,8 +158,8 @@ export interface LauncherApi {
   logoutMusic: () => Promise<void>;
   onFullscreenChanged: (callback: (payload: { fullscreen: boolean }) => void) => () => void;
   findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
-  exportLibrary: (games: Game[]) => Promise<string>;
-  importLibrary: () => Promise<Game[] | null>;
+  exportLibrary: (games: Game[], readingItems: ReadingItem[]) => Promise<string>;
+  importLibrary: () => Promise<{ games: Game[]; readingItems: ReadingItem[]; version: number } | null>;
   pickLaunchFile: () => Promise<PickedLaunchFile | null>;
   pickImage: () => Promise<string | null>;
   pickFolder: () => Promise<string | null>;

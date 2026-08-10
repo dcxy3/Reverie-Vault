@@ -35,7 +35,7 @@ contextBridge.exposeInMainWorld("galLauncher", {
   loadLibrary: () => ipcRenderer.invoke("library:load"),
   saveLibrary: (games) => ipcRenderer.invoke("library:save", games),
   pickLaunchFile: () => ipcRenderer.invoke("dialog:pickLaunchFile"),
-  exportLibrary: (games) => ipcRenderer.invoke("library:export", games),
+  exportLibrary: (games, readingItems) => ipcRenderer.invoke("library:export", games, readingItems),
   importLibrary: () => ipcRenderer.invoke("library:import"),
   pickImage: () => ipcRenderer.invoke("dialog:pickImage"),
   pickFolder: () => ipcRenderer.invoke("dialog:pickFolder"),

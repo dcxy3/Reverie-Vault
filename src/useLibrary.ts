@@ -368,8 +368,8 @@ export function useLibrary() {
 
   async function exportBackup() {
     try {
-      const filePath = await window.galLauncher.exportLibrary(games);
-      if (filePath) setNotice("备份已导出");
+      const filePath = await window.galLauncher.exportLibrary(games, readingItems);
+      if (filePath) setNotice(`备份已导出：${games.length} 个游戏，${readingItems.length} 本读物`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "导出失败");
     }
@@ -379,9 +379,10 @@ export function useLibrary() {
     try {
       const imported = await window.galLauncher.importLibrary();
       if (!imported) return;
-      setGames(imported);
-      setSelectedId(imported[0]?.id ?? "");
-      setNotice("备份已恢复");
+      setGames(imported.games);
+      setReadingItems(imported.readingItems);
+      setSelectedId(imported.games[0]?.id ?? "");
+      setNotice(`备份已恢复：${imported.games.length} 个游戏，${imported.readingItems.length} 本读物`);
     } catch (error) {
       setNotice(error instanceof Error ? error.message : "恢复失败");
     }

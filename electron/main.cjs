@@ -264,12 +264,50 @@ function configureReadingWatchers(items) {
   }
 }
 
-function backupPayload(games) {
+function compactBackupReplacer(_key, value) {
+  if (Buffer.isBuffer(value) || value instanceof ArrayBuffer || ArrayBuffer.isView(value)) return undefined;
+  if (typeof value === "string" && value.length > 1024 && /^data:(?:(?:image|audio|video)\/|application\/pdf)/i.test(value)) return "";
+  return value;
+}
+
+function backupReadingItems(items) {
+  return (Array.isArray(items) ? items : []).map((item) => ({
+    id: String(item.id || ""),
+    title: String(item.title || ""),
+    kind: item.kind,
+    filePath: String(item.filePath || ""),
+    format: String(item.format || ""),
+    importedAt: String(item.importedAt || ""),
+    ...(Number.isInteger(item.lastReadPage) ? { lastReadPage: item.lastReadPage } : {}),
+    ...(item.lastReadChapter ? { lastReadChapter: String(item.lastReadChapter) } : {}),
+    ...(item.lastReadAt ? { lastReadAt: String(item.lastReadAt) } : {}),
+    ...(Number.isFinite(item.totalReadingSeconds) ? { totalReadingSeconds: Math.max(0, item.totalReadingSeconds) } : {}),
+    ...(item.coverUrl ? { coverUrl: String(item.coverUrl) } : {}),
+    ...(item.coverPath ? { coverPath: String(item.coverPath) } : {}),
+    ...(item.coverSource ? { coverSource: String(item.coverSource) } : {})
+  }));
+}
+
+function validateBackupCollections(games, readingItems) {
+  if (!Array.isArray(games) || !games.every((game) => game && typeof game === "object" && typeof game.id === "string" && typeof game.title === "string")) {
+    throw new Error("备份中的游戏数据无效，未导入任何内容");
+  }
+  if (!Array.isArray(readingItems) || !readingItems.every((item) => item && typeof item === "object" && typeof item.id === "string" && typeof item.title === "string" && ["novel", "manga"].includes(item.kind) && typeof item.filePath === "string")) {
+    throw new Error("备份中的书架数据无效，未导入任何内容");
+  }
+}
+
+function backupPayload(games, readingItems) {
+  const safeGames = JSON.parse(JSON.stringify(Array.isArray(games) ? games : readLibrary(), compactBackupReplacer));
+  const safeReadingItems = backupReadingItems(Array.isArray(readingItems) ? readingItems : readReadingLibrary());
+  validateBackupCollections(safeGames, safeReadingItems);
   return {
     app: "Reverie Vault",
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
-    games: Array.isArray(games) ? games : readLibrary()
+    contentPolicy: "metadata-and-local-paths-only",
+    games: safeGames,
+    readingItems: safeReadingItems
   };
 }
 
@@ -2511,14 +2549,16 @@ ipcMain.handle("game:findCoverCandidates", async (_event, game) => {
 
 ipcMain.handle("game:lookupBangumiRating", async (_event, game) => lookupBangumiRating(game));
 
-ipcMain.handle("library:export", async (_event, games) => {
+ipcMain.handle("library:export", async (_event, games, readingItems) => {
   const result = await dialog.showSaveDialog(mainWindow, {
     title: "Export library backup",
     defaultPath: `reverie-vault-backup-${new Date().toISOString().slice(0, 10)}.json`,
     filters: [{ name: "JSON", extensions: ["json"] }]
   });
   if (result.canceled || !result.filePath) return "";
-  fs.writeFileSync(result.filePath, JSON.stringify(backupPayload(games), null, 2), "utf8");
+  const serialized = JSON.stringify(backupPayload(games, readingItems), compactBackupReplacer);
+  JSON.parse(serialized);
+  fs.writeFileSync(result.filePath, serialized, "utf8");
   return result.filePath;
 });
 
@@ -2529,11 +2569,27 @@ ipcMain.handle("library:import", async () => {
     filters: [{ name: "JSON", extensions: ["json"] }]
   });
   if (result.canceled || result.filePaths.length === 0) return null;
-  const data = JSON.parse(fs.readFileSync(result.filePaths[0], "utf8"));
+  const backupFile = result.filePaths[0];
+  const stat = fs.statSync(backupFile);
+  if (stat.size > 25 * 1024 * 1024) throw new Error("备份文件异常过大，已取消导入");
+  const data = JSON.parse(fs.readFileSync(backupFile, "utf8"));
   const games = Array.isArray(data) ? data : data.games;
-  if (!Array.isArray(games)) throw new Error("Invalid backup file");
-  writeLibrary(games);
-  return games;
+  const hasReadingBackup = !Array.isArray(data) && Object.prototype.hasOwnProperty.call(data, "readingItems");
+  if (hasReadingBackup && !Array.isArray(data.readingItems)) throw new Error("备份中的书架数据格式错误，未导入任何内容");
+  const readingItems = hasReadingBackup ? backupReadingItems(data.readingItems) : readReadingLibrary();
+  validateBackupCollections(games, readingItems);
+  const safeGames = JSON.parse(JSON.stringify(games, compactBackupReplacer));
+  const previousGames = readLibrary();
+  const previousReadingItems = readReadingLibrary();
+  try {
+    writeLibrary(safeGames);
+    writeReadingLibrary(readingItems);
+  } catch (error) {
+    try { writeLibrary(previousGames); } catch {}
+    try { writeReadingLibrary(previousReadingItems); } catch {}
+    throw error;
+  }
+  return { games: safeGames, readingItems, version: Number(data?.version || 1) };
 });
 
 ipcMain.handle("image:readDataUrl", async (_event, imagePath) => {
