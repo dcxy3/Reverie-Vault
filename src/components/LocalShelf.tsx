@@ -1,5 +1,6 @@
 import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImagePlus, ListTree, Minus, Plus, ScanLine, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import type { WheelEvent } from "react";
 import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind } from "../types";
 
 type ReaderPage = { chapter: string; paragraphs?: string[]; pdfPath?: string };
@@ -63,6 +64,7 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
   const [mangaPdfUrl, setMangaPdfUrl] = useState<string | null>(null);
   const [mangaPdfError, setMangaPdfError] = useState("");
   const [mangaZoom, setMangaZoom] = useState<number | "page-width">(100);
+  const [appliedMangaZoom, setAppliedMangaZoom] = useState<number | "page-width">(100);
 
   useEffect(() => {
     let cancelled = false;
@@ -77,6 +79,7 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
     setSelectedItem(items.find((item) => item.id === selectedItem.id) ?? null);
   }, [items, selectedItem?.id]);
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
+  const wheelPageLockRef = useRef(0);
 
   useEffect(() => window.galLauncher.onReadingContentChanged(({ itemId }) => {
     if (!reader || reader.item.id !== itemId) return;
@@ -162,10 +165,25 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
     }
   }
 
-  function setZoomFromPointer(clientY: number, track: HTMLDivElement) {
+  function zoomFromPointer(clientY: number, track: HTMLDivElement) {
     const bounds = track.getBoundingClientRect();
     const ratio = 1 - Math.max(0, Math.min(1, (clientY - bounds.top) / bounds.height));
-    setMangaZoom(Math.round((50 + ratio * 130) / 10) * 10);
+    return Math.round((50 + ratio * 130) / 10) * 10;
+  }
+
+  function changeMangaZoom(value: number | "page-width") {
+    setMangaZoom(value);
+    setAppliedMangaZoom(value);
+  }
+
+  function handleReaderWheel(event: WheelEvent<HTMLDivElement>) {
+    if (!reader || activePage?.pdfPath || event.deltaY <= 0 || pageIndex >= reader.pages.length - 1) return;
+    const scroller = event.currentTarget;
+    const reachedBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 3;
+    if (!reachedBottom || Date.now() < wheelPageLockRef.current) return;
+    event.preventDefault();
+    wheelPageLockRef.current = Date.now() + 450;
+    setPageIndex((current) => Math.min(reader.pages.length - 1, current + 1));
   }
 
   function closeReader() {
@@ -260,30 +278,32 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
             <div className="local-reader-chapter-handle"><ListTree size={20} /><span>目录</span></div>
           </aside>
           <button className="local-reader-exit" type="button" onClick={closeReader}><X size={18} />退出阅读</button>
-          <div className="local-reader-scroll" ref={readerScrollRef}>
+          <div className="local-reader-scroll" ref={readerScrollRef} onWheel={handleReaderWheel}>
             <article className="local-reader-page">
               <p className="local-reader-kicker">{activePage.chapter}</p>
               <h2>{reader.title}</h2>
               {activePage.pdfPath
                 ? mangaPdfUrl
-                  ? <div className="local-reader-pdf-viewport"><iframe key={`${mangaPdfUrl}-${mangaZoom}`} className="local-reader-pdf" src={`${mangaPdfUrl}#zoom=${mangaZoom}&toolbar=0&navpanes=0&scrollbar=0`} title={activePage.chapter} /></div>
+                  ? <div className="local-reader-pdf-viewport"><iframe className="local-reader-pdf" src={`${mangaPdfUrl}#zoom=${appliedMangaZoom}&toolbar=0&navpanes=0&scrollbar=0`} title={activePage.chapter} /></div>
                   : <div className="local-reader-pdf-state">{mangaPdfError || "正在读取漫画章节…"}</div>
                 : <div className="local-reader-text">{activePage.paragraphs?.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>}
               {activePage.pdfPath && <div className="manga-zoom-control">
-                <button type="button" className={mangaZoom === "page-width" ? "active" : ""} onClick={() => setMangaZoom("page-width")} title="自适应宽度" aria-label="自适应宽度"><ScanLine size={16} /></button>
-                <button type="button" onClick={() => setMangaZoom((zoom) => Math.min(180, (typeof zoom === "number" ? zoom : 100) + 10))} title="放大" aria-label="放大"><Plus size={15} /></button>
+                <button type="button" className={mangaZoom === "page-width" ? "active" : ""} onClick={() => changeMangaZoom("page-width")} title="自适应宽度" aria-label="自适应宽度"><ScanLine size={16} /></button>
+                <button type="button" onClick={() => changeMangaZoom(Math.min(180, (typeof mangaZoom === "number" ? mangaZoom : 100) + 10))} title="放大" aria-label="放大"><Plus size={15} /></button>
                 <div className="manga-zoom-slider" role="slider" tabIndex={0} aria-label="漫画缩放比例" aria-valuemin={50} aria-valuemax={180} aria-valuenow={typeof mangaZoom === "number" ? mangaZoom : 100}
-                  onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setZoomFromPointer(event.clientY, event.currentTarget); }}
-                  onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) setZoomFromPointer(event.clientY, event.currentTarget); }}
+                  onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setMangaZoom(zoomFromPointer(event.clientY, event.currentTarget)); }}
+                  onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) setMangaZoom(zoomFromPointer(event.clientY, event.currentTarget)); }}
+                  onPointerUp={(event) => { const zoom = zoomFromPointer(event.clientY, event.currentTarget); setMangaZoom(zoom); setAppliedMangaZoom(zoom); event.currentTarget.releasePointerCapture(event.pointerId); }}
+                  onPointerCancel={() => setMangaZoom(appliedMangaZoom)}
                   onKeyDown={(event) => {
                     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
                     event.preventDefault();
-                    setMangaZoom((zoom) => Math.max(50, Math.min(180, (typeof zoom === "number" ? zoom : 100) + (event.key === "ArrowUp" ? 10 : -10))));
+                    changeMangaZoom(Math.max(50, Math.min(180, (typeof mangaZoom === "number" ? mangaZoom : 100) + (event.key === "ArrowUp" ? 10 : -10))));
                   }}>
                   <span className="manga-zoom-track" />
                   <span className="manga-zoom-thumb" style={{ top: `${((180 - (typeof mangaZoom === "number" ? mangaZoom : 100)) / 130) * 100}%` }} />
                 </div>
-                <button type="button" onClick={() => setMangaZoom((zoom) => Math.max(50, (typeof zoom === "number" ? zoom : 100) - 10))} title="缩小" aria-label="缩小"><Minus size={15} /></button>
+                <button type="button" onClick={() => changeMangaZoom(Math.max(50, (typeof mangaZoom === "number" ? mangaZoom : 100) - 10))} title="缩小" aria-label="缩小"><Minus size={15} /></button>
                 <span>{mangaZoom === "page-width" ? "适应" : `${mangaZoom}%`}</span>
               </div>}
               <nav className="local-reader-pagination" aria-label="阅读翻页">
