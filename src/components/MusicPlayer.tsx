@@ -1,7 +1,10 @@
 import React from "react";
 import {
+  ChevronLeft,
+  ChevronRight,
   GripHorizontal,
   Heart,
+  ListMusic,
   LogOut,
   Music2,
   Pause,
@@ -10,11 +13,17 @@ import {
   RefreshCw,
   SkipBack,
   SkipForward,
+  Volume2,
+  VolumeX,
   X
 } from "lucide-react";
 import type { MusicPlaylist, MusicProfile, MusicTrack } from "../types";
 
 type Position = { x: number; y: number };
+type DockSide = "left" | "right" | null;
+
+const PLAYER_WIDTH = 350;
+const LEFT_EDGE = 64;
 
 function formatTime(seconds: number) {
   if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -39,8 +48,15 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   const [playing, setPlaying] = React.useState(false);
   const [currentTime, setCurrentTime] = React.useState(0);
   const [duration, setDuration] = React.useState(0);
+  const [isPlaylistOpen, setIsPlaylistOpen] = React.useState(false);
+  const [volume, setVolume] = React.useState(0.72);
+  const [muted, setMuted] = React.useState(false);
+  const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
+  const [dockSide, setDockSide] = React.useState<DockSide>(null);
+  const [isDockCollapsed, setIsDockCollapsed] = React.useState(false);
   const audioRef = React.useRef<HTMLAudioElement>(null);
   const dragRef = React.useRef<{ pointerId: number; dx: number; dy: number } | null>(null);
+  const dockTimerRef = React.useRef<number | null>(null);
 
   const currentTrack = currentIndex >= 0 ? playlist?.tracks[currentIndex] : undefined;
 
@@ -101,7 +117,22 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   React.useEffect(() => () => {
     const audio = audioRef.current;
     if (audio) { audio.pause(); audio.removeAttribute("src"); }
+    if (dockTimerRef.current !== null) window.clearTimeout(dockTimerRef.current);
   }, []);
+
+  React.useEffect(() => {
+    const audio = audioRef.current;
+    if (audio) { audio.volume = volume; audio.muted = muted; }
+  }, [volume, muted]);
+
+  React.useEffect(() => {
+    const handleResize = () => setPosition((current) => ({
+      x: dockSide === "left" ? LEFT_EDGE : dockSide === "right" ? window.innerWidth - PLAYER_WIDTH : Math.max(LEFT_EDGE, Math.min(window.innerWidth - PLAYER_WIDTH, current.x)),
+      y: Math.max(12, Math.min(window.innerHeight - 100, current.y))
+    }));
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, [dockSide]);
 
   async function createQr() {
     setLoading(true);
@@ -124,6 +155,7 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
       const audio = audioRef.current;
       audio.src = source.url;
       setCurrentIndex(index);
+      setIsPlaylistOpen(false);
       setCurrentTime(0);
       await audio.play();
       setPlaying(true);
@@ -154,12 +186,15 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
     setCurrentIndex(-1);
     setPlaying(false);
     setQr(null);
+    setIsPlaylistOpen(false);
     setLoginMessage("使用网易云音乐 App 扫码登录");
   }
 
   function beginDrag(event: React.PointerEvent<HTMLElement>) {
     if (event.button !== 0) return;
     dragRef.current = { pointerId: event.pointerId, dx: event.clientX - position.x, dy: event.clientY - position.y };
+    setIsDockCollapsed(false);
+    setDockSide(null);
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
@@ -167,17 +202,54 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
     setPosition({
-      x: Math.max(70, Math.min(window.innerWidth - 360, event.clientX - drag.dx)),
+      x: Math.max(LEFT_EDGE, Math.min(window.innerWidth - PLAYER_WIDTH, event.clientX - drag.dx)),
       y: Math.max(12, Math.min(window.innerHeight - 100, event.clientY - drag.dy))
     });
   }
 
   function endDrag(event: React.PointerEvent<HTMLElement>) {
-    if (dragRef.current?.pointerId === event.pointerId) dragRef.current = null;
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const finalX = Math.max(LEFT_EDGE, Math.min(window.innerWidth - PLAYER_WIDTH, event.clientX - drag.dx));
+    dragRef.current = null;
+    if (finalX <= LEFT_EDGE + 24) {
+      setDockSide("left");
+      setPosition((current) => ({ ...current, x: LEFT_EDGE }));
+    } else if (finalX >= window.innerWidth - PLAYER_WIDTH - 24) {
+      setDockSide("right");
+      setPosition((current) => ({ ...current, x: window.innerWidth - PLAYER_WIDTH }));
+    }
+  }
+
+  function revealDock() {
+    if (dockTimerRef.current !== null) window.clearTimeout(dockTimerRef.current);
+    dockTimerRef.current = null;
+    setIsDockCollapsed(false);
+  }
+
+  function scheduleDockCollapse() {
+    if (!dockSide || dragRef.current) return;
+    if (dockTimerRef.current !== null) window.clearTimeout(dockTimerRef.current);
+    dockTimerRef.current = window.setTimeout(() => {
+      setIsDockCollapsed(true);
+      setIsPlaylistOpen(false);
+      setIsVolumeOpen(false);
+      dockTimerRef.current = null;
+    }, 520);
   }
 
   return (
-    <section className="music-player" style={{ left: position.x, top: position.y }} aria-label="网易云音乐播放器">
+    <section
+      className={`music-player ${dockSide ? `is-docked is-docked-${dockSide}` : ""} ${isDockCollapsed ? "is-dock-collapsed" : ""}`}
+      style={{ left: position.x, top: position.y }}
+      aria-label="网易云音乐播放器"
+      onMouseEnter={revealDock}
+      onMouseLeave={scheduleDockCollapse}
+    >
+      {dockSide && <button type="button" className="music-dock-handle" aria-label="展开音乐播放器" onClick={revealDock}>
+        {dockSide === "left" ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
+        <Music2 size={15} />
+      </button>}
       <header className="music-player-header" onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
         <span className="music-player-title"><Music2 size={17} /> 音乐</span>
         <GripHorizontal className="music-drag-grip" size={19} />
@@ -203,10 +275,11 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
             <button type="button" className="music-icon-button" title="退出网易云账号" onClick={() => void logout()}><LogOut size={16} /></button>
           </div>
 
-          <div className="music-now-playing">
+          <button type="button" className="music-now-playing" aria-expanded={isPlaylistOpen} onClick={() => setIsPlaylistOpen((open) => !open)}>
             {currentTrack?.coverUrl || playlist?.coverUrl ? <img src={currentTrack?.coverUrl || playlist?.coverUrl} alt="" /> : <div className="music-cover-placeholder"><Heart size={24} /></div>}
-            <div><strong>{currentTrack?.name || "选择一首歌开始播放"}</strong><span>{currentTrack?.artists || `${playlist?.trackCount || 0} 首歌曲`}</span></div>
-          </div>
+            <div><strong>{currentTrack?.name || "选择一首歌开始播放"}</strong><span>{currentTrack?.artists || `点击展开歌单 · ${playlist?.trackCount || 0} 首`}</span></div>
+            <ListMusic size={17} />
+          </button>
 
           <div className="music-progress-row">
             <span>{formatTime(currentTime)}</span>
@@ -221,9 +294,17 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
             <button type="button" onClick={() => adjacent(-1)} aria-label="上一首"><SkipBack size={18} /></button>
             <button type="button" className="music-play-button" onClick={togglePlayback} aria-label={playing ? "暂停" : "播放"}>{playing ? <Pause size={19} /> : <Play size={19} fill="currentColor" />}</button>
             <button type="button" onClick={() => adjacent(1)} aria-label="下一首"><SkipForward size={18} /></button>
+            <div className="music-volume-control">
+              <button type="button" aria-label="音量控制" aria-expanded={isVolumeOpen} onClick={() => setIsVolumeOpen((open) => !open)}>{muted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}</button>
+              {isVolumeOpen && <div className="music-volume-popover">
+                <button type="button" aria-label={muted ? "取消静音" : "静音"} onClick={() => setMuted((value) => !value)}>{muted ? <VolumeX size={15} /> : <Volume2 size={15} />}</button>
+                <input type="range" min={0} max={1} step={0.01} value={volume} aria-label="播放音量" onChange={(event) => { setVolume(Number(event.target.value)); setMuted(false); }} />
+                <span>{Math.round((muted ? 0 : volume) * 100)}%</span>
+              </div>}
+            </div>
           </div>
 
-          {loading ? <div className="music-loading"><RefreshCw size={17} className="is-spinning" /> 正在读取歌单…</div> : (
+          {loading ? <div className="music-loading"><RefreshCw size={17} className="is-spinning" /> 正在读取歌单…</div> : isPlaylistOpen && (
             <div className="music-track-list">
               {(playlist?.tracks || []).map((track: MusicTrack, index) => (
                 <button type="button" className={`music-track ${index === currentIndex ? "active" : ""}`} key={track.id} onClick={() => void playAt(index)}>
