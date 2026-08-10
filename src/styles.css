@@ -2689,6 +2689,19 @@ textarea:focus-visible {
 
 .music-player button { color: inherit; font: inherit; }
 
+.music-player-fallback {
+  top: 76px;
+  right: 28px;
+  left: auto;
+  align-items: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+}
+
+.music-player-fallback > span { color: var(--text-secondary); font-size: 11px; line-height: 1.55; }
+.music-player-fallback > div { display: flex; align-items: center; gap: 8px; }
+
 .music-player-header {
   display: grid;
   grid-template-columns: 1fr auto 1fr;

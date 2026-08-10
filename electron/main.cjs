@@ -2,7 +2,7 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, safeStorage
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
-const { spawn, execFile } = require("node:child_process");
+const { spawn, execFile, fork } = require("node:child_process");
 
 // Keep existing libraries and settings available after the visible product rename.
 app.setPath("userData", path.join(app.getPath("appData"), "gal-launcher"));
@@ -12,12 +12,84 @@ app.setPath("userData", path.join(app.getPath("appData"), "gal-launcher"));
   const activePlaySessions = new Map();
   const readingWatchers = new Map();
   const readingWatchTimers = new Map();
-  let neteaseApiModule;
+  let musicWorker = null;
+  let musicRequestId = 0;
+  const pendingMusicRequests = new Map();
   let neteaseSessionCookie = "";
+  let musicSessionCache = null;
+  let musicPlaylistCache = null;
 
-  function getNeteaseApi() {
-    if (!neteaseApiModule) neteaseApiModule = require("@neteasecloudmusicapienhanced/api");
-    return neteaseApiModule;
+  function rejectPendingMusicRequests(error) {
+    for (const request of pendingMusicRequests.values()) {
+      clearTimeout(request.timer);
+      request.reject(error);
+    }
+    pendingMusicRequests.clear();
+  }
+
+  function ensureMusicWorker() {
+    if (musicWorker?.connected && !musicWorker.killed) return musicWorker;
+    const workerPath = path.join(__dirname, "music-worker.cjs");
+    musicWorker = fork(workerPath, [], {
+      windowsHide: true,
+      silent: true,
+      env: { ...process.env, ELECTRON_RUN_AS_NODE: "1", NO_COLOR: "1" }
+    });
+    musicWorker.on("message", (message) => {
+      if (message?.type === "worker-error") {
+        console.warn("[music-worker]", message.error);
+        return;
+      }
+      const request = pendingMusicRequests.get(message?.id);
+      if (!request) return;
+      clearTimeout(request.timer);
+      pendingMusicRequests.delete(message.id);
+      if (message.ok) request.resolve(message.result);
+      else request.reject(new Error(message.error || "网易云音乐请求失败"));
+    });
+    musicWorker.on("error", (error) => {
+      rejectPendingMusicRequests(new Error(`音乐服务启动失败：${error.message}`));
+      musicWorker = null;
+    });
+    musicWorker.on("exit", (code) => {
+      rejectPendingMusicRequests(new Error(`音乐服务已停止（代码 ${code ?? "unknown"}），请重试`));
+      musicWorker = null;
+    });
+    // The third-party module logs heavily during startup. Always drain stdout so its pipe cannot fill and stall it.
+    musicWorker.stdout?.on("data", () => undefined);
+    musicWorker.stderr?.on("data", (data) => console.warn("[music-worker]", String(data).trim()));
+    return musicWorker;
+  }
+
+  function callMusicApiOnce(method, args, timeoutMs = 20000) {
+    return new Promise((resolve, reject) => {
+      let worker;
+      try { worker = ensureMusicWorker(); } catch (error) { reject(error); return; }
+      const id = ++musicRequestId;
+      const timer = setTimeout(() => {
+        pendingMusicRequests.delete(id);
+        reject(new Error("网易云音乐请求超时，请检查网络后重试"));
+        try { worker.kill(); } catch {}
+      }, timeoutMs);
+      pendingMusicRequests.set(id, { resolve, reject, timer });
+      try {
+        worker.send({ id, method, args });
+      } catch (error) {
+        clearTimeout(timer);
+        pendingMusicRequests.delete(id);
+        reject(error);
+      }
+    });
+  }
+
+  async function callMusicApi(method, args, timeoutMs = 20000) {
+    try {
+      return await callMusicApiOnce(method, args, timeoutMs);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (!/音乐服务已停止|音乐服务启动失败|请求超时/.test(message)) throw error;
+      return callMusicApiOnce(method, args, timeoutMs);
+    }
   }
 
   function musicAuthPath() {
@@ -37,6 +109,8 @@ app.setPath("userData", path.join(app.getPath("appData"), "gal-launcher"));
   }
 
   function writeMusicCookie(cookie) {
+    musicSessionCache = null;
+    musicPlaylistCache = null;
     neteaseSessionCookie = String(cookie || "");
     const authPath = musicAuthPath();
     if (!neteaseSessionCookie) {
@@ -63,13 +137,16 @@ app.setPath("userData", path.join(app.getPath("appData"), "gal-launcher"));
   }
 
   async function getMusicSession() {
+    if (musicSessionCache && Date.now() - musicSessionCache.cachedAt < 5 * 60 * 1000) return musicSessionCache.value;
     const cookie = readMusicCookie();
     if (!cookie) return { loggedIn: false };
     try {
-      const body = musicBody(await getNeteaseApi().login_status({ cookie, timestamp: Date.now() }));
+      const body = musicBody(await callMusicApi("login_status", { cookie, timestamp: Date.now() }));
       const profile = musicProfile(body);
       if (!profile) return { loggedIn: false };
-      return { loggedIn: true, profile };
+      const value = { loggedIn: true, profile };
+      musicSessionCache = { cachedAt: Date.now(), value };
+      return value;
     } catch {
       return { loggedIn: false };
     }
@@ -2264,11 +2341,10 @@ ipcMain.handle("window:readCialloAudio", () => {
 ipcMain.handle("music:getSession", () => getMusicSession());
 
 ipcMain.handle("music:createQr", async () => {
-  const api = getNeteaseApi();
-  const keyResult = musicBody(await api.login_qr_key({ timestamp: Date.now() }));
+  const keyResult = musicBody(await callMusicApi("login_qr_key", { timestamp: Date.now() }));
   const key = keyResult?.unikey || keyResult?.data?.unikey || keyResult?.data?.data?.unikey;
   if (!key) throw new Error("Unable to create the NetEase Cloud Music login key");
-  const qrResult = musicBody(await api.login_qr_create({ key, qrimg: true, timestamp: Date.now() }));
+  const qrResult = musicBody(await callMusicApi("login_qr_create", { key, qrimg: true, timestamp: Date.now() }));
   const qrimg = qrResult?.qrimg || qrResult?.data?.qrimg || qrResult?.data?.data?.qrimg;
   if (!qrimg) throw new Error("Unable to create the NetEase Cloud Music QR code");
   return { key, qrimg };
@@ -2276,7 +2352,7 @@ ipcMain.handle("music:createQr", async () => {
 
 ipcMain.handle("music:checkQr", async (_event, key) => {
   if (typeof key !== "string" || !key.trim()) throw new Error("The QR login key is invalid");
-  const result = await getNeteaseApi().login_qr_check({ key: key.trim(), timestamp: Date.now() });
+  const result = await callMusicApi("login_qr_check", { key: key.trim(), timestamp: Date.now() });
   const body = musicBody(result);
   const code = Number(body?.code || body?.data?.code || 0);
   const message = String(body?.message || body?.data?.message || "");
@@ -2291,15 +2367,15 @@ ipcMain.handle("music:getLikedPlaylist", async () => {
   const cookie = readMusicCookie();
   const sessionState = await getMusicSession();
   if (!cookie || !sessionState.loggedIn) throw new Error("Please log in to NetEase Cloud Music first");
-  const api = getNeteaseApi();
-  const playlistBody = musicBody(await api.user_playlist({ uid: sessionState.profile.userId, limit: 1000, cookie, timestamp: Date.now() }));
+  if (musicPlaylistCache && musicPlaylistCache.userId === sessionState.profile.userId && Date.now() - musicPlaylistCache.cachedAt < 5 * 60 * 1000) return musicPlaylistCache.value;
+  const playlistBody = musicBody(await callMusicApi("user_playlist", { uid: sessionState.profile.userId, limit: 200, cookie, timestamp: Date.now() }));
   const playlists = playlistBody?.playlist || playlistBody?.data?.playlist || [];
   const owned = playlists.filter((playlist) => String(playlist?.creator?.userId || playlist?.userId || "") === sessionState.profile.userId);
   const liked = owned.find((playlist) => String(playlist?.name || "").includes("\u559c\u6b22\u7684\u97f3\u4e50")) || owned[0] || playlists[0];
   if (!liked?.id) throw new Error("No playlist was found for this account");
-  const tracksBody = musicBody(await api.playlist_track_all({ id: liked.id, limit: 1000, cookie, timestamp: Date.now() }));
+  const tracksBody = musicBody(await callMusicApi("playlist_track_all", { id: liked.id, limit: 500, cookie, timestamp: Date.now() }, 30000));
   const songs = tracksBody?.songs || tracksBody?.data?.songs || [];
-  return {
+  const value = {
     id: String(liked.id),
     name: String(liked.name || "\u6211\u559c\u6b22\u7684\u97f3\u4e50"),
     coverUrl: String(liked.coverImgUrl || ""),
@@ -2313,12 +2389,14 @@ ipcMain.handle("music:getLikedPlaylist", async () => {
       durationMs: Number(song.dt || song.duration || 0)
     }))
   };
+  musicPlaylistCache = { userId: sessionState.profile.userId, cachedAt: Date.now(), value };
+  return value;
 });
 
 ipcMain.handle("music:getSongUrl", async (_event, id) => {
   const cookie = readMusicCookie();
   if (!cookie) throw new Error("Please log in to NetEase Cloud Music first");
-  const body = musicBody(await getNeteaseApi().song_url_v1({ id: String(id), level: "standard", cookie, timestamp: Date.now() }));
+  const body = musicBody(await callMusicApi("song_url_v1", { id: String(id), level: "standard", cookie, timestamp: Date.now() }));
   const song = (body?.data || body?.songs || [])[0];
   if (!song?.url) throw new Error("This track is unavailable due to membership, copyright, or regional restrictions");
   return { url: String(song.url), type: String(song.type || ""), level: String(song.level || "standard") };
@@ -2327,7 +2405,7 @@ ipcMain.handle("music:getSongUrl", async (_event, id) => {
 ipcMain.handle("music:logout", async () => {
   const cookie = readMusicCookie();
   if (cookie) {
-    try { await getNeteaseApi().logout({ cookie, timestamp: Date.now() }); } catch {}
+    try { await callMusicApi("logout", { cookie, timestamp: Date.now() }); } catch {}
   }
   writeMusicCookie("");
 });
@@ -2863,6 +2941,11 @@ app.whenReady().then(() => {
 });
 
 app.on("before-quit", () => {
+  if (musicWorker && !musicWorker.killed) {
+    try { musicWorker.kill(); } catch {}
+    musicWorker = null;
+  }
+  rejectPendingMusicRequests(new Error("应用正在退出"));
   for (const watcher of readingWatchers.values()) watcher.handle.close();
   readingWatchers.clear();
   for (const timer of readingWatchTimers.values()) clearTimeout(timer);

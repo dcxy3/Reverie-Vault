@@ -41,6 +41,31 @@ function errorMessage(error: unknown) {
   return raw.replace(/^Error invoking remote method '[^']+': Error:\s*/, "");
 }
 
+export class MusicPlayerBoundary extends React.Component<{ children: React.ReactNode; onClose: () => void }, { failed: boolean }> {
+  state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  componentDidCatch(error: unknown) {
+    console.error("Music player render failed:", error);
+  }
+
+  render() {
+    if (!this.state.failed) return this.props.children;
+    return <section className="music-player music-player-fallback" aria-label="音乐播放器恢复面板">
+      <Music2 size={22} />
+      <strong>音乐面板发生异常</strong>
+      <span>主界面仍可继续使用，可以重试或关闭音乐面板。</span>
+      <div>
+        <button type="button" className="music-primary-button" onClick={() => this.setState({ failed: false })}><RefreshCw size={14} />重试</button>
+        <button type="button" className="music-icon-button" aria-label="关闭音乐面板" onClick={this.props.onClose}><X size={16} /></button>
+      </div>
+    </section>;
+  }
+}
+
 export function MusicPlayer({ onClose }: { onClose: () => void }) {
   const [position, setPosition] = React.useState<Position>(() => ({ x: Math.max(82, window.innerWidth - 390), y: 76 }));
   const [profile, setProfile] = React.useState<MusicProfile | null>(null);

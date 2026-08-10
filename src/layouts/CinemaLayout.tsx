@@ -21,7 +21,7 @@ import {
 import { formatPlayTime } from "../utils";
 import type { LibraryController } from "../useLibrary";
 import { LocalShelf } from "../components/LocalShelf";
-import { MusicPlayer } from "../components/MusicPlayer";
+import { MusicPlayer, MusicPlayerBoundary } from "../components/MusicPlayer";
 import reverieVaultIcon from "../assets/reverie-vault-icon.png";
 
 type GlobalSearchResult = {
@@ -265,7 +265,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
         </button>
       </aside>
 
-      {isMusicOpen && <MusicPlayer onClose={() => setIsMusicOpen(false)} />}
+      {isMusicOpen && <MusicPlayerBoundary onClose={() => setIsMusicOpen(false)}><MusicPlayer onClose={() => setIsMusicOpen(false)} /></MusicPlayerBoundary>}
 
       <main className="stage cinema-stage" style={viewMode !== "library" ? { gridTemplateRows: "60px minmax(0, 1fr)" } as React.CSSProperties : undefined}>
         <header className="stage-top">
