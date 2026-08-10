@@ -356,7 +356,7 @@ button {
   to { transform: rotate(3turn) scale(1.08); }
 }
 
-.rail-button.mystery.launching svg {
+.rail-button.mystery .mystery-spin-icon {
   animation: mystery-button-spin 900ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
@@ -384,7 +384,7 @@ button {
   font-size: clamp(13px, 1.6vw, 25px);
   font-weight: 900;
   text-shadow: 0 2px 7px rgba(0, 0, 0, 0.72), 0 0 10px #ff85cb, 0 0 22px rgba(94, 210, 255, 0.9);
-  animation: ciallo-pop 2.7s var(--ease-out) var(--ciallo-delay) both;
+  animation: ciallo-pop 3.3s var(--ease-out) var(--ciallo-delay) both;
 }
 
 @keyframes firework-core {
@@ -394,9 +394,9 @@ button {
 }
 
 @keyframes firework-ray {
-  0% { opacity: 0; transform: rotate(calc(var(--ray) * 30deg)) translateY(0) scaleY(0.2); }
+  0% { opacity: 0; transform: rotate(calc(var(--ray) * 22.5deg)) translateY(0) scaleY(0.2); }
   18% { opacity: 1; }
-  100% { opacity: 0; transform: rotate(calc(var(--ray) * 30deg)) translateY(-84px) scaleY(1); }
+  100% { opacity: 0; transform: rotate(calc(var(--ray) * 22.5deg)) translateY(-96px) scaleY(1); }
 }
 
 .ciallo-firework {
