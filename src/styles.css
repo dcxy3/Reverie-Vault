@@ -2306,6 +2306,7 @@ textarea:focus-visible {
 }
 
 .local-reader-pdf-viewport {
+  position: relative;
   width: 100%;
   height: 100vh;
   overflow: hidden;
@@ -2341,83 +2342,14 @@ textarea:focus-visible {
   background: rgba(11, 31, 47, 0.76);
 }
 
-.manga-zoom-control {
-  position: fixed;
-  right: 18px;
-  top: 50%;
-  z-index: 4;
-  display: flex;
-  width: 38px;
-  align-items: center;
-  flex-direction: column;
-  gap: 9px;
-  padding: 8px 6px;
-  border: 1px solid rgba(220, 241, 255, 0.2);
-  border-radius: 999px;
-  color: rgba(244, 251, 255, 0.88);
-  background: rgba(12, 32, 48, 0.7);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(14px);
-  transform: translateY(-50%);
-}
-
-.manga-zoom-control button {
-  display: grid;
-  width: 27px;
-  height: 27px;
-  place-items: center;
-  border-radius: 999px;
-  color: inherit;
-  background: rgba(126, 184, 218, 0.16);
-}
-
-.manga-zoom-control button:hover,
-.manga-zoom-control button.active {
-  color: #ffffff;
-  background: rgba(86, 165, 207, 0.55);
-}
-
-.manga-zoom-slider {
-  position: relative;
-  width: 28px;
-  height: 112px;
-  margin: 1px 0;
-  touch-action: none;
-  cursor: pointer;
-  outline: 0;
-}
-
-.manga-zoom-track {
+.manga-alt-zoom-layer {
   position: absolute;
   top: 0;
+  right: 0;
   bottom: 0;
-  left: 12px;
-  width: 4px;
-  border: 1px solid rgba(220, 241, 255, 0.22);
-  border-radius: 999px;
-  background: rgba(205, 234, 250, 0.18);
-}
-
-.manga-zoom-thumb {
-  position: absolute;
-  left: 7px;
-  width: 14px;
-  height: 14px;
-  margin-top: -7px;
-  border: 2px solid rgba(239, 250, 255, 0.88);
-  border-radius: 50%;
-  background: rgba(86, 165, 207, 0.94);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 10px rgba(158, 217, 247, 0.28);
-  pointer-events: none;
-}
-
-.manga-zoom-slider:focus-visible .manga-zoom-thumb {
-  box-shadow: 0 0 0 3px rgba(158, 217, 247, 0.26), 0 2px 8px rgba(0, 0, 0, 0.3);
-}
-
-.manga-zoom-control span {
-  font-size: 9px;
-  font-variant-numeric: tabular-nums;
+  left: 0;
+  z-index: 2;
+  cursor: zoom-in;
 }
 
 .local-reader-kicker {

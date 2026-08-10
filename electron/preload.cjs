@@ -12,6 +12,11 @@ contextBridge.exposeInMainWorld("galLauncher", {
     ipcRenderer.on("reader:contentChanged", listener);
     return () => ipcRenderer.removeListener("reader:contentChanged", listener);
   },
+  onAltKeyChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("reader:altKeyChanged", listener);
+    return () => ipcRenderer.removeListener("reader:altKeyChanged", listener);
+  },
   findReadingCoverCandidates: (item) => ipcRenderer.invoke("reader:findCoverCandidates", item),
   loadLibrary: () => ipcRenderer.invoke("library:load"),
   saveLibrary: (games) => ipcRenderer.invoke("library:save", games),

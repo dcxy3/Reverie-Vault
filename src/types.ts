@@ -146,6 +146,7 @@ export interface LauncherApi {
   readManga: (item: ReadingItem) => Promise<ReadingMangaDocument>;
   readMangaChapter: (item: ReadingItem, filePath: string) => Promise<ArrayBuffer>;
   onReadingContentChanged: (callback: (payload: { itemId: string }) => void) => () => void;
+  onAltKeyChanged: (callback: (payload: { pressed: boolean }) => void) => () => void;
   findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
   exportLibrary: (games: Game[]) => Promise<string>;
   importLibrary: () => Promise<Game[] | null>;

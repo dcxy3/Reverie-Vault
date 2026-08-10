@@ -65,6 +65,7 @@ function createWindow() {
 
   // Register F12 to toggle DevTools (Ctrl+Shift+I doesn't work with autoHideMenuBar)
   mainWindow.webContents.on("before-input-event", (_event, input) => {
+    if (input.key === "Alt") mainWindow.webContents.send("reader:altKeyChanged", { pressed: input.type === "keyDown" });
     if (input.key === "F12" && input.type === "keyDown") {
       mainWindow.webContents.toggleDevTools();
     }
