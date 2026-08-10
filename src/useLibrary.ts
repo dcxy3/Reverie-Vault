@@ -205,29 +205,19 @@ export function useLibrary() {
   }, [selected]);
 
   const filteredGames = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     return games
       .filter((game) => statusFilter === "全部" || game.status === statusFilter)
-      .filter((game) => !tagFilter || game.tags.includes(tagFilter))
-      .filter((game) => {
-        if (!needle) return true;
-        return [game.title, game.originalTitle, game.developer, ...game.tags].some((value) => value.toLowerCase().includes(needle));
-      });
-  }, [games, query, statusFilter, tagFilter]);
+      .filter((game) => !tagFilter || game.tags.includes(tagFilter));
+  }, [games, statusFilter, tagFilter]);
 
   const collectionGames = useMemo(() => {
-    const needle = query.trim().toLowerCase();
     return games
-      .filter((game) => {
-        if (!needle) return true;
-        return [game.title, game.originalTitle, game.developer, ...game.tags].some((value) => value.toLowerCase().includes(needle));
-      })
       .sort((a, b) => {
         const left = a.lastPlayedAt ? new Date(a.lastPlayedAt).getTime() : 0;
         const right = b.lastPlayedAt ? new Date(b.lastPlayedAt).getTime() : 0;
         return right - left || a.title.localeCompare(b.title);
       });
-  }, [games, query]);
+  }, [games]);
 
   const remoteImagePaths = useMemo(
     () =>
