@@ -1,4 +1,4 @@
-import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImagePlus, ListTree, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImagePlus, ListTree, ScanLine, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind } from "../types";
 
@@ -62,6 +62,7 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
   const [localCoverUrls, setLocalCoverUrls] = useState<Record<string, string>>({});
   const [mangaPdfUrl, setMangaPdfUrl] = useState<string | null>(null);
   const [mangaPdfError, setMangaPdfError] = useState("");
+  const [mangaZoom, setMangaZoom] = useState<number | "page-width">(100);
 
   useEffect(() => {
     let cancelled = false;
@@ -235,9 +236,14 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
               <h2>{reader.title}</h2>
               {activePage.pdfPath
                 ? mangaPdfUrl
-                  ? <div className="local-reader-pdf-viewport"><iframe className="local-reader-pdf" src={`${mangaPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} title={activePage.chapter} /></div>
+                  ? <div className="local-reader-pdf-viewport"><iframe className="local-reader-pdf" src={`${mangaPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&zoom=${mangaZoom}`} title={activePage.chapter} /></div>
                   : <div className="local-reader-pdf-state">{mangaPdfError || "正在读取漫画章节…"}</div>
                 : <div className="local-reader-text">{activePage.paragraphs?.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>}
+              {activePage.pdfPath && <div className="manga-zoom-control">
+                <button type="button" className={mangaZoom === "page-width" ? "active" : ""} onClick={() => setMangaZoom("page-width")} title="自适应宽度" aria-label="自适应宽度"><ScanLine size={16} /></button>
+                <input type="range" min="50" max="180" step="10" value={typeof mangaZoom === "number" ? mangaZoom : 100} onChange={(event) => setMangaZoom(Number(event.target.value))} aria-label="漫画缩放比例" />
+                <span>{mangaZoom === "page-width" ? "适应" : `${mangaZoom}%`}</span>
+              </div>}
               <nav className="local-reader-pagination" aria-label="阅读翻页">
                 <button type="button" aria-label="上一页" disabled={pageIndex === 0} onClick={() => setPageIndex((current) => current - 1)}><ChevronLeft size={18} /></button>
                 <span>{pageIndex + 1} / {reader.pages.length}</span>

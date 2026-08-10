@@ -2287,7 +2287,7 @@ textarea:focus-visible {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background: rgba(8, 17, 25, 0.18);
+  background: rgba(8, 17, 25, 0.28);
 }
 
 .local-reader-pdf {
@@ -2317,6 +2317,57 @@ textarea:focus-visible {
   margin: 0;
   transform: translateX(-50%);
   background: rgba(11, 31, 47, 0.76);
+}
+
+.manga-zoom-control {
+  position: fixed;
+  right: 18px;
+  top: 50%;
+  z-index: 4;
+  display: flex;
+  width: 38px;
+  align-items: center;
+  flex-direction: column;
+  gap: 9px;
+  padding: 8px 6px;
+  border: 1px solid rgba(220, 241, 255, 0.2);
+  border-radius: 999px;
+  color: rgba(244, 251, 255, 0.88);
+  background: rgba(12, 32, 48, 0.7);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
+  transform: translateY(-50%);
+}
+
+.manga-zoom-control button {
+  display: grid;
+  width: 27px;
+  height: 27px;
+  place-items: center;
+  border-radius: 999px;
+  color: inherit;
+  background: rgba(126, 184, 218, 0.16);
+}
+
+.manga-zoom-control button:hover,
+.manga-zoom-control button.active {
+  color: #ffffff;
+  background: rgba(86, 165, 207, 0.55);
+}
+
+.manga-zoom-control input[type="range"] {
+  width: 5px;
+  height: 112px;
+  margin: 1px 0;
+  cursor: pointer;
+  accent-color: #9ed9f7;
+  writing-mode: vertical-lr;
+  direction: rtl;
+}
+
+.manga-zoom-control span {
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
 }
 
 .local-reader-kicker {
