@@ -8,9 +8,9 @@ type ActiveReader = { item: ReadingItem; title: string; pages: ReaderPage[] };
 const chapterPattern = /^(?:第[一二三四五六七八九十百千万两〇零0-9]+[章节卷回部篇].*|chapter\s+\d+.*)$/i;
 const pageCharacterLimit = 780;
 
-function paginateNovel(content: string): ReaderPage[] {
+function paginateNovel(content: string, initialChapter = "正文"): ReaderPage[] {
   const pages: ReaderPage[] = [];
-  let chapter = "正文";
+  let chapter = initialChapter;
   let paragraphs: string[] = [];
   let characterCount = 0;
   const flush = () => {
@@ -73,6 +73,16 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
   }, [items]);
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
 
+  useEffect(() => window.galLauncher.onReadingContentChanged(({ itemId }) => {
+    if (!reader || reader.item.id !== itemId) return;
+    const currentChapter = reader.pages[pageIndex]?.chapter;
+    void loadReaderPages(reader.item).then(({ title, pages }) => {
+      const matchingPage = pages.findIndex((page) => page.chapter === currentChapter);
+      setReader({ item: reader.item, title, pages });
+      setPageIndex(matchingPage >= 0 ? matchingPage : Math.max(0, Math.min(pageIndex, pages.length - 1)));
+    }).catch(() => undefined);
+  }), [reader, pageIndex]);
+
   useEffect(() => {
     const page = reader?.pages[pageIndex];
     if (!reader || !page?.pdfPath) {
@@ -121,14 +131,23 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
     readerScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [pageIndex, reader]);
 
+  async function loadReaderPages(item: ReadingItem): Promise<{ title: string; pages: ReaderPage[] }> {
+    if (item.kind === "manga") {
+      const document = await window.galLauncher.readManga(item);
+      return { title: document.title, pages: document.chapters.map((chapter) => ({ chapter: chapter.title, pdfPath: chapter.filePath })) };
+    }
+    const document = await window.galLauncher.readNovel(item);
+    const pages = document.chapters?.length
+      ? document.chapters.flatMap((chapter) => paginateNovel(chapter.content, chapter.title))
+      : paginateNovel(document.content || "");
+    return { title: document.title, pages };
+  }
+
   async function openReader(item: ReadingItem) {
     try {
-      const document = item.kind === "manga" ? await window.galLauncher.readManga(item) : await window.galLauncher.readNovel(item);
-      const pages = "chapters" in document
-        ? document.chapters.map((chapter) => ({ chapter: chapter.title, pdfPath: chapter.filePath }))
-        : paginateNovel(document.content);
+      const { title, pages } = await loadReaderPages(item);
       setPageIndex(Math.min(item.lastReadPage ?? 0, pages.length - 1));
-      setReader({ item, title: document.title, pages });
+      setReader({ item, title, pages });
       setReadingStartedAt(Date.now());
     } catch (error) {
       const content = error instanceof Error ? error.message : "无法打开这本作品。";

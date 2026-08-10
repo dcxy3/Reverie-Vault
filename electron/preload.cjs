@@ -7,6 +7,11 @@ contextBridge.exposeInMainWorld("galLauncher", {
   readNovel: (item) => ipcRenderer.invoke("reader:readNovel", item),
   readManga: (item) => ipcRenderer.invoke("reader:readManga", item),
   readMangaChapter: (item, filePath) => ipcRenderer.invoke("reader:readMangaChapter", item, filePath),
+  onReadingContentChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("reader:contentChanged", listener);
+    return () => ipcRenderer.removeListener("reader:contentChanged", listener);
+  },
   findReadingCoverCandidates: (item) => ipcRenderer.invoke("reader:findCoverCandidates", item),
   loadLibrary: () => ipcRenderer.invoke("library:load"),
   saveLibrary: (games) => ipcRenderer.invoke("library:save", games),

@@ -8,6 +8,8 @@ const { pathToFileURL } = require("node:url");
   const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
   let mainWindow;
   const activePlaySessions = new Map();
+  const readingWatchers = new Map();
+  const readingWatchTimers = new Map();
 
   const domainQueues = new Map();
   function limitDomain(url, concurrency = 3) {
@@ -156,7 +158,38 @@ function readReadingLibrary() {
 function writeReadingLibrary(items) {
   const safeItems = Array.isArray(items) ? items : [];
   fs.writeFileSync(readingDataPath(), JSON.stringify(safeItems, null, 2), "utf8");
+  configureReadingWatchers(safeItems);
   return safeItems;
+}
+
+function configureReadingWatchers(items) {
+  const wanted = new Map((Array.isArray(items) ? items : []).filter((item) => item?.id && item?.filePath).map((item) => [item.id, item]));
+  for (const [itemId, watcher] of readingWatchers) {
+    const item = wanted.get(itemId);
+    if (item && watcher.sourcePath === item.filePath) continue;
+    watcher.handle.close();
+    readingWatchers.delete(itemId);
+  }
+  for (const [itemId, item] of wanted) {
+    if (readingWatchers.has(itemId) || !fs.existsSync(item.filePath)) continue;
+    const stat = fs.statSync(item.filePath);
+    const watchPath = stat.isDirectory() ? item.filePath : path.dirname(item.filePath);
+    try {
+      const handle = fs.watch(watchPath, { recursive: stat.isDirectory() }, (_eventType, fileName) => {
+        const extension = path.extname(String(fileName || "")).toLowerCase();
+        const relevant = item.kind === "manga" ? extension === ".pdf" : [".txt", ".md", ".markdown"].includes(extension);
+        if (!relevant) return;
+        clearTimeout(readingWatchTimers.get(itemId));
+        readingWatchTimers.set(itemId, setTimeout(() => {
+          readingWatchTimers.delete(itemId);
+          if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("reader:contentChanged", { itemId });
+        }, 500));
+      });
+      readingWatchers.set(itemId, { sourcePath: item.filePath, handle });
+    } catch (error) {
+      console.warn("reading content watch failed:", item.filePath, error.message);
+    }
+  }
 }
 
 function backupPayload(games) {
@@ -2133,7 +2166,11 @@ async function findReadingCoverCandidates(item) {
   return candidates.filter((candidate) => !seen.has(candidate.imageUrl) && seen.add(candidate.imageUrl)).sort((a, b) => b.score - a.score).slice(0, 12);
 }
 
-ipcMain.handle("reader:load", () => readReadingLibrary());
+ipcMain.handle("reader:load", () => {
+  const items = readReadingLibrary();
+  configureReadingWatchers(items);
+  return items;
+});
 
 ipcMain.handle("reader:save", (_event, items) => writeReadingLibrary(items));
 
@@ -2141,10 +2178,36 @@ ipcMain.handle("reader:findCoverCandidates", async (_event, item) => findReading
 
 ipcMain.handle("reader:readNovel", (_event, item) => {
   if (!item || item.kind !== "novel" || typeof item.filePath !== "string") throw new Error("The light novel entry is invalid");
-  if (item.format !== "TXT") throw new Error("Only TXT light novels can be read in the current version");
+  if (!fs.existsSync(item.filePath)) throw new Error("The imported light novel path no longer exists");
   const stat = fs.statSync(item.filePath);
-  if (stat.size > 8 * 1024 * 1024) throw new Error("The text file is too large to open");
-  return { title: item.title, content: fs.readFileSync(item.filePath, "utf8") };
+  const decodeText = (filePath) => {
+    const data = fs.readFileSync(filePath);
+    if (data.byteLength > 8 * 1024 * 1024) throw new Error(`The chapter is too large: ${path.basename(filePath)}`);
+    const utf8 = data.toString("utf8");
+    return utf8.includes("�") ? new TextDecoder("gb18030").decode(data) : utf8;
+  };
+  if (stat.isFile()) {
+    if (![".txt", ".md", ".markdown"].includes(path.extname(item.filePath).toLowerCase())) throw new Error("Only TXT and Markdown light novels can be read");
+    return { title: item.title, content: decodeText(item.filePath) };
+  }
+  const files = [];
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(entryPath);
+      else if (entry.isFile() && [".txt", ".md", ".markdown"].includes(path.extname(entry.name).toLowerCase())) files.push(entryPath);
+    }
+  };
+  visit(item.filePath);
+  files.sort((left, right) => left.localeCompare(right, "zh-CN", { numeric: true, sensitivity: "base" }));
+  if (!files.length) throw new Error("No TXT or Markdown chapters were found in this folder");
+  return {
+    title: item.title,
+    chapters: files.map((filePath) => ({
+      title: path.relative(item.filePath, filePath).replace(/\.(?:txt|md|markdown)$/i, "").split(path.sep).join(" / "),
+      content: decodeText(filePath)
+    }))
+  };
 });
 
 function findPdfChapters(rootPath) {
@@ -2186,25 +2249,39 @@ ipcMain.handle("reader:readMangaChapter", (_event, item, chapterPath) => {
 
 ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
   const isManga = kind === "manga";
+  let importFolder = isManga;
+  if (!isManga) {
+    const choice = await dialog.showMessageBox(mainWindow, {
+      type: "question",
+      title: "导入轻小说",
+      message: "请选择轻小说导入方式",
+      detail: "单个文件支持 TXT、Markdown；文件夹会递归识别分卷和章节。",
+      buttons: ["导入单个文件", "导入分卷文件夹", "取消"],
+      defaultId: 0,
+      cancelId: 2
+    });
+    if (choice.response === 2) return [];
+    importFolder = choice.response === 1;
+  }
   const result = await dialog.showOpenDialog(mainWindow, {
     title: isManga ? "Import local comics" : "Import local light novels",
-    properties: isManga ? ["openDirectory"] : ["openFile", "multiSelections"],
+    properties: importFolder ? ["openDirectory"] : ["openFile", "multiSelections"],
     filters: isManga
       ? [
           { name: "Comic files", extensions: ["cbz", "zip", "pdf", "png", "jpg", "jpeg", "webp"] },
           { name: "All files", extensions: ["*"] }
         ]
       : [
-          { name: "Light novels", extensions: ["epub", "txt", "pdf"] },
+          { name: "Light novels", extensions: ["txt", "md", "markdown"] },
           { name: "All files", extensions: ["*"] }
         ]
   });
   if (result.canceled) return [];
   return result.filePaths.map((filePath) => ({
-    title: isManga ? path.basename(filePath) : path.basename(filePath, path.extname(filePath)),
+    title: importFolder ? path.basename(filePath) : path.basename(filePath, path.extname(filePath)),
     kind: isManga ? "manga" : "novel",
     filePath,
-    format: isManga ? "PDF 文件夹" : path.extname(filePath).replace(/^\./, "").toUpperCase() || "FILE"
+    format: isManga ? "PDF 文件夹" : importFolder ? "TXT / Markdown 文件夹" : path.extname(filePath).replace(/^\./, "").toUpperCase() || "FILE"
   }));
 });
 
@@ -2579,6 +2656,10 @@ app.whenReady().then(() => {
 });
 
 app.on("before-quit", () => {
+  for (const watcher of readingWatchers.values()) watcher.handle.close();
+  readingWatchers.clear();
+  for (const timer of readingWatchTimers.values()) clearTimeout(timer);
+  readingWatchTimers.clear();
   // Snapshot all active sessions so crash recovery uses exact elapsed time,
   // not wall-clock difference (critical for system shutdown without closing app)
   for (const [sid, s] of activePlaySessions) {

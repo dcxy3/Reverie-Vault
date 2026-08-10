@@ -89,7 +89,8 @@ export type PickedReadingItem = Omit<ReadingItem, "id" | "importedAt">;
 
 export interface ReadingTextDocument {
   title: string;
-  content: string;
+  content?: string;
+  chapters?: Array<{ title: string; content: string }>;
 }
 
 export interface ReadingMangaChapter {
@@ -144,6 +145,7 @@ export interface LauncherApi {
   readNovel: (item: ReadingItem) => Promise<ReadingTextDocument>;
   readManga: (item: ReadingItem) => Promise<ReadingMangaDocument>;
   readMangaChapter: (item: ReadingItem, filePath: string) => Promise<ArrayBuffer>;
+  onReadingContentChanged: (callback: (payload: { itemId: string }) => void) => () => void;
   findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
   exportLibrary: (games: Game[]) => Promise<string>;
   importLibrary: () => Promise<Game[] | null>;
