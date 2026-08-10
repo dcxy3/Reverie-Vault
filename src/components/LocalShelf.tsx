@@ -1,4 +1,4 @@
-import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImagePlus, ListTree, ScanLine, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImagePlus, ListTree, Minus, Plus, ScanLine, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind } from "../types";
 
@@ -162,6 +162,12 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
     }
   }
 
+  function setZoomFromPointer(clientY: number, track: HTMLDivElement) {
+    const bounds = track.getBoundingClientRect();
+    const ratio = 1 - Math.max(0, Math.min(1, (clientY - bounds.top) / bounds.height));
+    setMangaZoom(Math.round((50 + ratio * 130) / 10) * 10);
+  }
+
   function closeReader() {
     if (reader && readingStartedAt) onAddReadingTime(reader.item.id, Math.max(1, Math.round((Date.now() - readingStartedAt) / 1000)));
     setReader(null);
@@ -260,14 +266,24 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
               <h2>{reader.title}</h2>
               {activePage.pdfPath
                 ? mangaPdfUrl
-                  ? <div className="local-reader-pdf-viewport"><iframe className="local-reader-pdf" src={`${mangaPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&zoom=${mangaZoom}`} title={activePage.chapter} /></div>
+                  ? <div className="local-reader-pdf-viewport"><iframe key={`${mangaPdfUrl}-${mangaZoom}`} className="local-reader-pdf" src={`${mangaPdfUrl}#zoom=${mangaZoom}&toolbar=0&navpanes=0&scrollbar=0`} title={activePage.chapter} /></div>
                   : <div className="local-reader-pdf-state">{mangaPdfError || "正在读取漫画章节…"}</div>
                 : <div className="local-reader-text">{activePage.paragraphs?.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>}
               {activePage.pdfPath && <div className="manga-zoom-control">
                 <button type="button" className={mangaZoom === "page-width" ? "active" : ""} onClick={() => setMangaZoom("page-width")} title="自适应宽度" aria-label="自适应宽度"><ScanLine size={16} /></button>
-                <div className="manga-zoom-slider">
-                  <input type="range" min="50" max="180" step="10" value={typeof mangaZoom === "number" ? mangaZoom : 100} onInput={(event) => setMangaZoom(Number(event.currentTarget.value))} aria-label="漫画缩放比例" />
+                <button type="button" onClick={() => setMangaZoom((zoom) => Math.min(180, (typeof zoom === "number" ? zoom : 100) + 10))} title="放大" aria-label="放大"><Plus size={15} /></button>
+                <div className="manga-zoom-slider" role="slider" tabIndex={0} aria-label="漫画缩放比例" aria-valuemin={50} aria-valuemax={180} aria-valuenow={typeof mangaZoom === "number" ? mangaZoom : 100}
+                  onPointerDown={(event) => { event.currentTarget.setPointerCapture(event.pointerId); setZoomFromPointer(event.clientY, event.currentTarget); }}
+                  onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) setZoomFromPointer(event.clientY, event.currentTarget); }}
+                  onKeyDown={(event) => {
+                    if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+                    event.preventDefault();
+                    setMangaZoom((zoom) => Math.max(50, Math.min(180, (typeof zoom === "number" ? zoom : 100) + (event.key === "ArrowUp" ? 10 : -10))));
+                  }}>
+                  <span className="manga-zoom-track" />
+                  <span className="manga-zoom-thumb" style={{ top: `${((180 - (typeof mangaZoom === "number" ? mangaZoom : 100)) / 130) * 100}%` }} />
                 </div>
+                <button type="button" onClick={() => setMangaZoom((zoom) => Math.max(50, (typeof zoom === "number" ? zoom : 100) - 10))} title="缩小" aria-label="缩小"><Minus size={15} /></button>
                 <span>{mangaZoom === "page-width" ? "适应" : `${mangaZoom}%`}</span>
               </div>}
               <nav className="local-reader-pagination" aria-label="阅读翻页">
