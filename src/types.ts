@@ -141,8 +141,8 @@ export interface LauncherApi {
   loadReadingLibrary: () => Promise<ReadingItem[]>;
   saveReadingLibrary: (items: ReadingItem[]) => Promise<ReadingItem[]>;
   pickReadingItems: (kind: ReadingItemKind) => Promise<PickedReadingItem[]>;
-  readNovel: (itemId: string) => Promise<ReadingTextDocument>;
-  readManga: (itemId: string) => Promise<ReadingMangaDocument>;
+  readNovel: (item: ReadingItem) => Promise<ReadingTextDocument>;
+  readManga: (item: ReadingItem) => Promise<ReadingMangaDocument>;
   findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
   exportLibrary: (games: Game[]) => Promise<string>;
   importLibrary: () => Promise<Game[] | null>;

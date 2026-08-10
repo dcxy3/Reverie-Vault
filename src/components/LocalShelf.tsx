@@ -96,7 +96,7 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
 
   async function openReader(item: ReadingItem) {
     try {
-      const document = item.kind === "manga" ? await window.galLauncher.readManga(item.id) : await window.galLauncher.readNovel(item.id);
+      const document = item.kind === "manga" ? await window.galLauncher.readManga(item) : await window.galLauncher.readNovel(item);
       const pages = "chapters" in document
         ? document.chapters.map((chapter) => ({ chapter: chapter.title, pdfUrl: chapter.fileUrl }))
         : paginateNovel(document.content);

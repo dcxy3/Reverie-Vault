@@ -2139,9 +2139,8 @@ ipcMain.handle("reader:save", (_event, items) => writeReadingLibrary(items));
 
 ipcMain.handle("reader:findCoverCandidates", async (_event, item) => findReadingCoverCandidates(item).catch((error) => { console.warn("reader cover search failed:", error.message); return []; }));
 
-ipcMain.handle("reader:readNovel", (_event, itemId) => {
-  const item = readReadingLibrary().find((entry) => entry.id === itemId && entry.kind === "novel");
-  if (!item) throw new Error("Reading item was not found");
+ipcMain.handle("reader:readNovel", (_event, item) => {
+  if (!item || item.kind !== "novel" || typeof item.filePath !== "string") throw new Error("The light novel entry is invalid");
   if (item.format !== "TXT") throw new Error("Only TXT light novels can be read in the current version");
   const stat = fs.statSync(item.filePath);
   if (stat.size > 8 * 1024 * 1024) throw new Error("The text file is too large to open");
@@ -2161,17 +2160,16 @@ function findPdfChapters(rootPath) {
   return chapters.sort((left, right) => left.localeCompare(right, "zh-CN", { numeric: true, sensitivity: "base" }));
 }
 
-ipcMain.handle("reader:readManga", (_event, itemId) => {
-  const item = readReadingLibrary().find((entry) => entry.id === itemId && entry.kind === "manga");
-  if (!item) throw new Error("Reading item was not found");
-  if (!fs.statSync(item.filePath).isDirectory()) throw new Error("The imported comic is not a folder");
+ipcMain.handle("reader:readManga", (_event, item) => {
+  if (!item || item.kind !== "manga" || typeof item.filePath !== "string") throw new Error("The comic entry is invalid");
+  if (!fs.existsSync(item.filePath) || !fs.statSync(item.filePath).isDirectory()) throw new Error("The imported comic folder no longer exists");
   const files = findPdfChapters(item.filePath);
   if (!files.length) throw new Error("No PDF chapters were found in this folder");
   return {
     title: item.title,
     chapters: files.map((filePath) => ({
       title: path.relative(item.filePath, filePath).replace(/\.pdf$/i, "").split(path.sep).join(" / "),
-      fileUrl: `local-file:///${filePath.replace(/\\/g, "/")}`
+      fileUrl: `local-file:///${filePath.replace(/\\/g, "/").split("/").map(encodeURIComponent).join("/")}`
     }))
   };
 });
