@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld("galLauncher", {
   },
   toggleFullscreen: () => ipcRenderer.invoke("window:toggleFullscreen"),
   openCiallo: () => ipcRenderer.invoke("window:openCiallo"),
+  readCialloAudio: () => ipcRenderer.invoke("window:readCialloAudio"),
   onFullscreenChanged: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on("window:fullscreenChanged", listener);

@@ -34,14 +34,35 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
   const [showMysteryEffect, setShowMysteryEffect] = React.useState(false);
   const mysteryEffectTimerRef = React.useRef<number | null>(null);
   const mysteryLaunchTimerRef = React.useRef<number | null>(null);
+  const mysteryAudioRef = React.useRef<HTMLAudioElement | null>(null);
+  const mysteryAudioUrlRef = React.useRef("");
   React.useEffect(() => window.galLauncher.onFullscreenChanged(({ fullscreen }) => setIsFullscreen(fullscreen)), []);
   React.useEffect(() => () => {
     if (mysteryEffectTimerRef.current !== null) window.clearTimeout(mysteryEffectTimerRef.current);
     if (mysteryLaunchTimerRef.current !== null) window.clearTimeout(mysteryLaunchTimerRef.current);
+    mysteryAudioRef.current?.pause();
+    if (mysteryAudioUrlRef.current) URL.revokeObjectURL(mysteryAudioUrlRef.current);
+  }, []);
+
+  React.useEffect(() => {
+    let disposed = false;
+    void window.galLauncher.readCialloAudio().then((data) => {
+      if (disposed) return;
+      const audioUrl = URL.createObjectURL(new Blob([data], { type: "audio/mpeg" }));
+      mysteryAudioUrlRef.current = audioUrl;
+      mysteryAudioRef.current = new Audio(audioUrl);
+      mysteryAudioRef.current.preload = "auto";
+    }).catch(() => undefined);
+    return () => { disposed = true; };
   }, []);
 
   function triggerMysteryButton() {
     if (isMysteryLaunching) return;
+    if (mysteryAudioRef.current) {
+      mysteryAudioRef.current.pause();
+      mysteryAudioRef.current.currentTime = 0;
+      void mysteryAudioRef.current.play().catch(() => undefined);
+    }
     setMysterySpin((value) => value + 1);
     if (mysteryClickCount === 0) {
       setMysteryClickCount(1);

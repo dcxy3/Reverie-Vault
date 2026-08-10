@@ -2150,6 +2150,13 @@ ipcMain.handle("window:toggleFullscreen", () => {
 
 ipcMain.handle("window:openCiallo", () => shell.openExternal("https://ciallo.cc/"));
 
+ipcMain.handle("window:readCialloAudio", () => {
+  const audioPath = path.join(app.getAppPath(), "ciallo.mp3");
+  if (!fs.existsSync(audioPath)) throw new Error("Ciallo audio file was not found");
+  const data = fs.readFileSync(audioPath);
+  return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+});
+
 ipcMain.handle("library:save", (_event, games) => writeLibrary(games));
 
 async function findReadingCoverCandidates(item) {
