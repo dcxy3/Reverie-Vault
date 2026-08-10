@@ -2,7 +2,7 @@ import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImagePlus, ListTr
 import { useEffect, useRef, useState } from "react";
 import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind } from "../types";
 
-type ReaderPage = { chapter: string; paragraphs?: string[]; pdfUrl?: string };
+type ReaderPage = { chapter: string; paragraphs?: string[]; pdfPath?: string };
 type ActiveReader = { item: ReadingItem; title: string; pages: ReaderPage[] };
 
 const chapterPattern = /^(?:第[一二三四五六七八九十百千万两〇零0-9]+[章节卷回部篇].*|chapter\s+\d+.*)$/i;
@@ -60,6 +60,8 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
   const [coverCandidates, setCoverCandidates] = useState<ReadingCoverCandidate[]>([]);
   const [isFindingCovers, setIsFindingCovers] = useState(false);
   const [localCoverUrls, setLocalCoverUrls] = useState<Record<string, string>>({});
+  const [mangaPdfUrl, setMangaPdfUrl] = useState<string | null>(null);
+  const [mangaPdfError, setMangaPdfError] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -69,6 +71,30 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
     return () => { cancelled = true; };
   }, [items]);
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const page = reader?.pages[pageIndex];
+    if (!reader || !page?.pdfPath) {
+      setMangaPdfUrl(null);
+      setMangaPdfError("");
+      return;
+    }
+    let disposed = false;
+    let objectUrl = "";
+    setMangaPdfUrl(null);
+    setMangaPdfError("");
+    window.galLauncher.readMangaChapter(reader.item, page.pdfPath).then((data) => {
+      if (disposed) return;
+      objectUrl = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
+      setMangaPdfUrl(objectUrl);
+    }).catch((error) => {
+      if (!disposed) setMangaPdfError(error instanceof Error ? error.message : "无法读取当前漫画章节。");
+    });
+    return () => {
+      disposed = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [reader, pageIndex]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -98,7 +124,7 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
     try {
       const document = item.kind === "manga" ? await window.galLauncher.readManga(item) : await window.galLauncher.readNovel(item);
       const pages = "chapters" in document
-        ? document.chapters.map((chapter) => ({ chapter: chapter.title, pdfUrl: chapter.fileUrl }))
+        ? document.chapters.map((chapter) => ({ chapter: chapter.title, pdfPath: chapter.filePath }))
         : paginateNovel(document.content);
       setPageIndex(Math.min(item.lastReadPage ?? 0, pages.length - 1));
       setReader({ item, title: document.title, pages });
@@ -192,7 +218,7 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
       )}
 
       {reader && activePage && (
-        <section className={`local-reader ${activePage.pdfUrl ? "manga-reader" : ""}`} role="dialog" aria-modal="true" aria-label={reader.title}>
+        <section className={`local-reader ${activePage.pdfPath ? "manga-reader" : ""}`} role="dialog" aria-modal="true" aria-label={reader.title}>
           <aside className="local-reader-chapter-rail" aria-label="章节目录">
             <div className="local-reader-chapter-panel">
               <p>章节目录</p>
@@ -207,8 +233,10 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
             <article className="local-reader-page">
               <p className="local-reader-kicker">{activePage.chapter}</p>
               <h2>{reader.title}</h2>
-              {activePage.pdfUrl
-                ? <iframe className="local-reader-pdf" src={`${activePage.pdfUrl}#toolbar=0&navpanes=0&view=FitH`} title={activePage.chapter} />
+              {activePage.pdfPath
+                ? mangaPdfUrl
+                  ? <iframe className="local-reader-pdf" src={`${mangaPdfUrl}#toolbar=0&navpanes=0&view=FitH`} title={activePage.chapter} />
+                  : <div className="local-reader-pdf-state">{mangaPdfError || "正在读取漫画章节…"}</div>
                 : <div className="local-reader-text">{activePage.paragraphs?.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>}
               <nav className="local-reader-pagination" aria-label="阅读翻页">
                 <button type="button" aria-label="上一页" disabled={pageIndex === 0} onClick={() => setPageIndex((current) => current - 1)}><ChevronLeft size={18} /></button>

@@ -2169,9 +2169,19 @@ ipcMain.handle("reader:readManga", (_event, item) => {
     title: item.title,
     chapters: files.map((filePath) => ({
       title: path.relative(item.filePath, filePath).replace(/\.pdf$/i, "").split(path.sep).join(" / "),
-      fileUrl: `local-file:///${filePath.replace(/\\/g, "/").split("/").map(encodeURIComponent).join("/")}`
+      filePath
     }))
   };
+});
+
+ipcMain.handle("reader:readMangaChapter", (_event, item, chapterPath) => {
+  if (!item || item.kind !== "manga" || typeof item.filePath !== "string" || typeof chapterPath !== "string") throw new Error("The comic chapter is invalid");
+  const rootPath = path.resolve(item.filePath);
+  const resolvedChapter = path.resolve(chapterPath);
+  const relativePath = path.relative(rootPath, resolvedChapter);
+  if (relativePath.startsWith("..") || path.isAbsolute(relativePath) || path.extname(resolvedChapter).toLowerCase() !== ".pdf") throw new Error("The comic chapter path is invalid");
+  const data = fs.readFileSync(resolvedChapter);
+  return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
 });
 
 ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {

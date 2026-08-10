@@ -94,7 +94,7 @@ export interface ReadingTextDocument {
 
 export interface ReadingMangaChapter {
   title: string;
-  fileUrl: string;
+  filePath: string;
 }
 
 export interface ReadingMangaDocument {
@@ -143,6 +143,7 @@ export interface LauncherApi {
   pickReadingItems: (kind: ReadingItemKind) => Promise<PickedReadingItem[]>;
   readNovel: (item: ReadingItem) => Promise<ReadingTextDocument>;
   readManga: (item: ReadingItem) => Promise<ReadingMangaDocument>;
+  readMangaChapter: (item: ReadingItem, filePath: string) => Promise<ArrayBuffer>;
   findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
   exportLibrary: (games: Game[]) => Promise<string>;
   importLibrary: () => Promise<Game[] | null>;

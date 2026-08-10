@@ -2284,6 +2284,17 @@ textarea:focus-visible {
   background: rgba(8, 17, 25, 0.45);
 }
 
+.local-reader-pdf-state {
+  display: grid;
+  width: 100%;
+  height: calc(100vh - 225px);
+  min-height: 460px;
+  place-items: center;
+  border-radius: 10px;
+  color: rgba(240, 249, 255, 0.78);
+  background: rgba(8, 17, 25, 0.45);
+}
+
 .manga-reader .local-reader-pagination {
   margin-top: 14px;
 }
