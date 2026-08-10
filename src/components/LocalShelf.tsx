@@ -44,8 +44,10 @@ function formatReadingTime(seconds = 0) {
   return hours ? `${hours} 小时 ${minutes} 分钟` : `${minutes} 分钟`;
 }
 
-export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, onRemoveItem, onSetCover, onSetLocalCover }: {
+export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, onSaveProgress, onAddReadingTime, onRemoveItem, onSetCover, onSetLocalCover }: {
   items: ReadingItem[];
+  selectedItemId?: string;
+  selectionRequest?: number;
   onImport: (kind: ReadingItemKind) => void;
   onSaveProgress: (itemId: string, page: number, chapter: string) => void;
   onAddReadingTime: (itemId: string, seconds: number) => void;
@@ -78,6 +80,15 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
     if (!selectedItem) return;
     setSelectedItem(items.find((item) => item.id === selectedItem.id) ?? null);
   }, [items, selectedItem?.id]);
+
+  useEffect(() => {
+    if (!selectedItemId) return;
+    const target = items.find((item) => item.id === selectedItemId);
+    if (!target) return;
+    setSelectedItem(target);
+    setIsInfoOpen(false);
+    window.requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-reading-item-id="${CSS.escape(selectedItemId)}"]`)?.scrollIntoView({ behavior: "smooth", block: "center", inline: "center" }));
+  }, [selectedItemId, selectionRequest]);
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
   const wheelPageLockRef = useRef(0);
   const mangaZoomRef = useRef(100);
@@ -231,7 +242,7 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
         <div className="local-shelf-wall">
           {items.map((item) => {
             const Icon = item.kind === "manga" ? Image : FileText;
-            return <button className={`local-shelf-card ${selectedItem?.id === item.id ? "selected" : ""}`} key={item.id} type="button" onClick={() => {
+            return <button className={`local-shelf-card ${selectedItem?.id === item.id ? "selected" : ""}`} data-reading-item-id={item.id} key={item.id} type="button" onClick={() => {
               if (selectedItem?.id === item.id) void openReader(item);
               else setSelectedItem(item);
             }} title={item.title}

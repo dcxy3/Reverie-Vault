@@ -2,12 +2,14 @@ import React from "react";
 import {
   Download,
   BookOpen,
+  FileText,
   Gamepad2,
   Home,
   Library,
   Maximize,
   Minimize,
   Music2,
+  Image as ImageIcon,
   Pin,
   Play,
   Plus,
@@ -22,6 +24,43 @@ import { LocalShelf } from "../components/LocalShelf";
 import { MusicPlayer } from "../components/MusicPlayer";
 import reverieVaultIcon from "../assets/reverie-vault-icon.png";
 
+type GlobalSearchResult = {
+  id: string;
+  kind: "game" | "novel" | "manga";
+  title: string;
+  subtitle: string;
+  score: number;
+};
+
+function normalizeSearchText(value: string) {
+  return value.toLocaleLowerCase("zh-CN").replace(/[\s\p{P}\p{S}]+/gu, "");
+}
+
+function fuzzySearchScore(query: string, values: string[]) {
+  const needle = normalizeSearchText(query);
+  if (!needle) return 0;
+  let best = 0;
+  for (const rawValue of values) {
+    const value = normalizeSearchText(rawValue || "");
+    if (!value) continue;
+    if (value === needle) best = Math.max(best, 1000);
+    else if (value.startsWith(needle)) best = Math.max(best, 900 - Math.min(100, value.length - needle.length));
+    else if (value.includes(needle)) best = Math.max(best, 780 - Math.min(120, value.indexOf(needle) * 8));
+    else {
+      let cursor = 0;
+      let gaps = 0;
+      for (const character of needle) {
+        const index = value.indexOf(character, cursor);
+        if (index < 0) { cursor = -1; break; }
+        gaps += index - cursor;
+        cursor = index + 1;
+      }
+      if (cursor >= 0) best = Math.max(best, 520 - Math.min(180, gaps * 10));
+    }
+  }
+  return best;
+}
+
 function mysteryRandom(seed: number) {
   const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
   return value - Math.floor(value);
@@ -31,6 +70,9 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
   const [isChromePinned, setIsChromePinned] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [isMusicOpen, setIsMusicOpen] = React.useState(false);
+  const [isSearchOpen, setIsSearchOpen] = React.useState(false);
+  const [activeSearchIndex, setActiveSearchIndex] = React.useState(0);
+  const [searchReadingTarget, setSearchReadingTarget] = React.useState({ id: "", request: 0 });
   const [mysteryClickCount, setMysteryClickCount] = React.useState(0);
   const [mysterySpin, setMysterySpin] = React.useState(0);
   const [isMysteryLaunching, setIsMysteryLaunching] = React.useState(false);
@@ -90,6 +132,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
     }, 1000);
   }
   const {
+    games,
     query, setQuery,
     statusFilter, setStatusFilter,
     viewMode, setViewMode,
@@ -121,6 +164,42 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
     , setReadingCover
     , setReadingLocalCover
   } = lib;
+
+  const searchResults = React.useMemo<GlobalSearchResult[]>(() => {
+    if (normalizeSearchText(query).length < 2) return [];
+    return [
+      ...games.map((game) => ({
+        id: game.id,
+        kind: "game" as const,
+        title: game.title,
+        subtitle: [game.developer, game.originalTitle].filter(Boolean).join(" · ") || "本地游戏",
+        score: fuzzySearchScore(query, [game.title, game.originalTitle, game.developer, ...(game.tags || [])])
+      })),
+      ...readingItems.map((item) => ({
+        id: item.id,
+        kind: item.kind,
+        title: item.title,
+        subtitle: `${item.kind === "manga" ? "漫画" : "轻小说"} · ${item.lastReadChapter || item.format}`,
+        score: fuzzySearchScore(query, [item.title, item.format, item.lastReadChapter || ""])
+      }))
+    ].filter((item) => item.score > 0).sort((left, right) => right.score - left.score || left.title.localeCompare(right.title, "zh-CN")).slice(0, 6);
+  }, [games, query, readingItems]);
+
+  function chooseSearchResult(result: GlobalSearchResult) {
+    setQuery("");
+    setIsSearchOpen(false);
+    setActiveSearchIndex(0);
+    setIsInfoOpen(false);
+    if (result.kind === "game") {
+      setViewMode("library");
+      setStatusFilter("全部");
+      setTagFilter(null);
+      setSelectedId(result.id);
+      return;
+    }
+    setSearchReadingTarget((current) => ({ id: result.id, request: current.request + 1 }));
+    setViewMode("reading");
+  }
 
   return (
     <>
@@ -190,9 +269,35 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
 
       <main className="stage cinema-stage" style={viewMode !== "library" ? { gridTemplateRows: "60px minmax(0, 1fr)" } as React.CSSProperties : undefined}>
         <header className="stage-top">
-          <div className="search-pill">
-            <Search size={18} />
-            <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索标题、会社、标签" />
+          <div className="global-search" onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setIsSearchOpen(false); }}>
+            <div className="search-pill">
+              <Search size={18} />
+              <input
+                value={query}
+                onFocus={() => setIsSearchOpen(normalizeSearchText(query).length >= 2)}
+                onChange={(event) => { setQuery(event.target.value); setActiveSearchIndex(0); setIsSearchOpen(normalizeSearchText(event.target.value).length >= 2); }}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") { setIsSearchOpen(false); return; }
+                  if (!searchResults.length) return;
+                  if (event.key === "ArrowDown") { event.preventDefault(); setIsSearchOpen(true); setActiveSearchIndex((index) => (index + 1) % searchResults.length); }
+                  else if (event.key === "ArrowUp") { event.preventDefault(); setIsSearchOpen(true); setActiveSearchIndex((index) => (index - 1 + searchResults.length) % searchResults.length); }
+                  else if (event.key === "Enter") { event.preventDefault(); chooseSearchResult(searchResults[Math.min(activeSearchIndex, searchResults.length - 1)]); }
+                }}
+                placeholder="搜索游戏、轻小说、漫画"
+                aria-label="全局搜索"
+                aria-expanded={isSearchOpen && searchResults.length > 0}
+              />
+            </div>
+            {isSearchOpen && <div className="global-search-results" role="listbox">
+              {searchResults.length ? searchResults.map((result, index) => {
+                const ResultIcon = result.kind === "game" ? Gamepad2 : result.kind === "manga" ? ImageIcon : FileText;
+                return <button type="button" role="option" aria-selected={index === activeSearchIndex} className={index === activeSearchIndex ? "active" : ""} key={`${result.kind}-${result.id}`} onMouseDown={(event) => event.preventDefault()} onMouseEnter={() => setActiveSearchIndex(index)} onClick={() => chooseSearchResult(result)}>
+                  <span className={`global-search-icon ${result.kind}`}><ResultIcon size={16} /></span>
+                  <span className="global-search-copy"><strong>{result.title}</strong><small>{result.subtitle}</small></span>
+                  <b>{result.kind === "game" ? "游戏" : result.kind === "manga" ? "漫画" : "轻小说"}</b>
+                </button>;
+              }) : <div className="global-search-empty">没有找到匹配的本地内容</div>}
+            </div>}
           </div>
           <div className="stage-stats">
             <span>{formatPlayTime(totalSeconds)}</span>
@@ -281,7 +386,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
             </div>
           </section>
         ) : viewMode === "reading" ? (
-          <LocalShelf items={readingItems} onImport={importReadingItems} onSaveProgress={saveReadingProgress} onAddReadingTime={addReadingTime} onRemoveItem={removeReadingItem} onSetCover={setReadingCover} onSetLocalCover={setReadingLocalCover} />
+          <LocalShelf items={readingItems} selectedItemId={searchReadingTarget.id} selectionRequest={searchReadingTarget.request} onImport={importReadingItems} onSaveProgress={saveReadingProgress} onAddReadingTime={addReadingTime} onRemoveItem={removeReadingItem} onSetCover={setReadingCover} onSetLocalCover={setReadingLocalCover} />
         ) : selected ? (
           <section className="feature">
             <div className="showcase-art">
