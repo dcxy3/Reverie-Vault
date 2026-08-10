@@ -14,6 +14,7 @@ import { statuses } from "./utils";
 import { useLibrary } from "./useLibrary";
 import { SideSheet } from "./components/SideSheet";
 import { CinemaLayout } from "./layouts/CinemaLayout";
+import { ResilientImage, useOnlineStatus } from "./network";
 import "./styles.css";
 
 const sourceColors: Record<string, string> = {
@@ -32,6 +33,7 @@ const sourceColors: Record<string, string> = {
 const cinemaFontHref = "https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&family=Inter:wght@300;400;500;600&family=Noto+Serif+JP:wght@400;600&display=swap";
 
 function App() {
+  const isOnline = useOnlineStatus();
   const lib = useLibrary();
   const {
     statusFilter,
@@ -201,7 +203,7 @@ function App() {
                 : coverCandidates.map((candidate: CoverCandidate) => (
                     <button key={candidate.id} className="candidate-card" onClick={() => chooseCover(candidate)}>
                       <div className="candidate-image">
-                        {imageCache[candidate.path] ? <img src={imageCache[candidate.path]} alt="" /> : <Gamepad2 size={30} />}
+                        <ResilientImage src={imageCache[candidate.path]} alt="" fallback={<span className="cover-missing-state"><Gamepad2 size={24} /><b>封面丢失了喵</b></span>} />
                       </div>
                       <span
                         className="source-badge"
@@ -213,7 +215,7 @@ function App() {
                       <small>{candidate.reason}</small>
                     </button>
                   ))}
-              {!isFindingCovers && coverCandidates.length === 0 && <p className="candidate-empty">没有找到符合横版比例的候选图。</p>}
+              {!isFindingCovers && coverCandidates.length === 0 && <p className="candidate-empty">{isOnline ? "没有找到符合横版比例的候选图。" : "当前处于离线模式，无法查找在线封面。"}</p>}
             </div>
           </section>
         </div>
@@ -230,7 +232,7 @@ function App() {
             </div>
             <div className="metadata-search-row">
               <input value={metadataKeyword} onChange={(event) => setMetadataKeyword(event.target.value)} placeholder="输入标题重新搜索，例如 サクラノ刻 / WHITE ALBUM2" />
-              <button className="soft-button" onClick={() => {
+              <button className="soft-button" disabled={!isOnline} title={isOnline ? "搜索在线资料" : "离线模式下不可用"} onClick={() => {
                 const game = games.find((item) => item.id === candidateGameId);
                 if (game) openMetadataCandidates(game, metadataKeyword);
               }}>
@@ -242,7 +244,7 @@ function App() {
               {metadataCandidates.map((candidate: MetadataCandidate) => (
                 <button key={`${candidate.source}-${candidate.sourceId}`} className="metadata-candidate" onClick={() => applyMetadataCandidate(candidate)}>
                   <div className="metadata-cover">
-                    {candidate.coverUrl ? <img src={candidate.coverUrl} alt="" /> : <Gamepad2 size={30} />}
+                    <ResilientImage src={candidate.coverUrl} alt="" fallback={<span className="cover-missing-state"><Gamepad2 size={22} /><b>封面丢失了喵</b></span>} />
                   </div>
                   <div>
                     <strong>{candidate.title}</strong>
@@ -252,7 +254,7 @@ function App() {
                   </div>
                 </button>
               ))}
-              {metadataCandidates.length === 0 && <p className="candidate-empty">没有找到候选。可以换日文原名、英文名或会社名再搜。</p>}
+              {metadataCandidates.length === 0 && <p className="candidate-empty">{isOnline ? "没有找到候选。可以换日文原名、英文名或会社名再搜。" : "当前处于离线模式，本地游戏仍可正常启动。"}</p>}
             </div>
           </section>
         </div>

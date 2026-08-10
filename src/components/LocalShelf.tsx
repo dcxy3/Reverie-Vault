@@ -1,7 +1,8 @@
-import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImagePlus, ListTree, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImageOff, ImagePlus, ListTree, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import type { WheelEvent } from "react";
 import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind } from "../types";
+import { ResilientImage, useOnlineStatus } from "../network";
 
 type ReaderPage = { chapter: string; paragraphs?: string[]; pdfPath?: string };
 type ActiveReader = { item: ReadingItem; title: string; pages: ReaderPage[] };
@@ -55,6 +56,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   onSetCover: (itemId: string, coverUrl: string, coverSource: string) => void;
   onSetLocalCover: (itemId: string, coverPath: string) => void;
 }) {
+  const isOnline = useOnlineStatus();
   const [reader, setReader] = useState<ActiveReader | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [selectedItem, setSelectedItem] = useState<ReadingItem | null>(null);
@@ -253,7 +255,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
                 card.style.setProperty("--tilt-y", `${((event.clientX - bounds.left) / bounds.width - 0.5) * 60}deg`);
               }}
               onMouseLeave={(event) => { event.currentTarget.style.removeProperty("--tilt-x"); event.currentTarget.style.removeProperty("--tilt-y"); }}>
-              <div className={`local-shelf-cover ${item.kind === "manga" ? "manga-a" : "novel-a"}`}>{item.coverUrl || localCoverUrls[item.id] ? <img src={item.coverUrl || localCoverUrls[item.id]} alt="" /> : <><Icon size={34} /><span>{item.kind === "manga" ? "漫画" : "轻小说"}</span></>}<b className="local-shelf-type-badge">{item.kind === "manga" ? "漫画" : "轻小说"}</b></div>
+              <div className={`local-shelf-cover ${item.kind === "manga" ? "manga-a" : "novel-a"}`}><ResilientImage src={item.coverUrl || localCoverUrls[item.id]} alt="" fallback={item.coverUrl ? <span className="cover-missing-state"><ImageOff size={27} /><b>封面丢失了喵</b></span> : <><Icon size={34} /><span>{item.kind === "manga" ? "漫画" : "轻小说"}</span></>} /><b className="local-shelf-type-badge">{item.kind === "manga" ? "漫画" : "轻小说"}</b></div>
               <div className="local-shelf-meta"><strong>{item.title}</strong><span>{item.lastReadChapter ? `读至 ${item.lastReadChapter}` : `${item.format} · 已导入`}</span></div>
             </button>;
           })}
@@ -272,13 +274,14 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
           <p className="local-reader-kicker">READING DETAILS</p>
           <h2>{selectedItem.title}</h2>
           <p className="reading-info-description">本地导入作品。阅读进度和时长会自动保存到书架。</p>
-          <div className="reading-cover-actions"><button className="reading-cover-search" type="button" disabled={isFindingCovers} onClick={async () => {
+          <div className="reading-cover-actions"><button className="reading-cover-search" type="button" disabled={isFindingCovers || !isOnline} title={isOnline ? "在线查找封面" : "离线模式下不可用"} onClick={async () => {
+            if (!isOnline) return;
             setIsFindingCovers(true);
             setCoverCandidates(await window.galLauncher.findReadingCoverCandidates(selectedItem));
             setIsFindingCovers(false);
-          }}>{isFindingCovers ? "正在查找封面…" : "查找在线封面"}</button>
+          }}>{!isOnline ? "离线模式：无法查找" : isFindingCovers ? "正在查找封面…" : "查找在线封面"}</button>
           <button className="reading-cover-search" type="button" onClick={async () => { const path = await window.galLauncher.pickImage(); if (path) onSetLocalCover(selectedItem.id, path); }}><ImagePlus size={15} />上传本地封面</button></div>
-          {coverCandidates.length > 0 && <div className="reading-cover-candidates">{coverCandidates.map((candidate) => <button type="button" key={candidate.id} onClick={() => { onSetCover(selectedItem.id, candidate.imageUrl, candidate.source); setCoverCandidates([]); }}><img src={candidate.imageUrl} alt="" /><span>{candidate.source}</span></button>)}</div>}
+          {coverCandidates.length > 0 && <div className="reading-cover-candidates">{coverCandidates.map((candidate) => <button type="button" key={candidate.id} onClick={() => { onSetCover(selectedItem.id, candidate.imageUrl, candidate.source); setCoverCandidates([]); }}><ResilientImage src={candidate.imageUrl} alt="" fallback={<span className="cover-missing-state"><ImageOff size={20} /><b>封面丢失了喵</b></span>} /><span>{candidate.source}</span></button>)}</div>}
           <dl>
             <div><dt>格式</dt><dd>{selectedItem.format}</dd></div>
             <div><dt>总时长</dt><dd>{formatReadingTime(selectedItem.totalReadingSeconds)}</dd></div>

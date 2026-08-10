@@ -1,13 +1,11 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, protocol, safeStorage, session, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, safeStorage, session, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn, execFile, fork } = require("node:child_process");
-const { Readable } = require("node:stream");
 
 // Keep existing libraries and settings available after the visible product rename.
 app.setPath("userData", path.join(app.getPath("appData"), "gal-launcher"));
-protocol.registerSchemesAsPrivileged([{ scheme: "reverie-media", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
 
   const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
   let mainWindow;
@@ -2404,10 +2402,26 @@ ipcMain.handle("music:removeLocalTrack", (_event, id) => {
   return publicLocalMusicTracks(tracks);
 });
 
-ipcMain.handle("music:getLocalTrackUrl", (_event, id) => {
+ipcMain.handle("music:readLocalTrack", (_event, id) => {
   const track = readLocalMusicLibrary().find((item) => item.id === String(id));
   if (!track || !fs.existsSync(track.filePath)) throw new Error("本地音乐文件已被移动或删除");
-  return `reverie-media://track/${encodeURIComponent(track.id)}`;
+  const stat = fs.statSync(track.filePath);
+  if (!stat.isFile()) throw new Error("本地音乐路径不是文件");
+  const mimeTypes = {
+    ".mp3": "audio/mpeg",
+    ".flac": "audio/flac",
+    ".wav": "audio/wav",
+    ".m4a": "audio/mp4",
+    ".aac": "audio/aac",
+    ".ogg": "audio/ogg",
+    ".opus": "audio/ogg; codecs=opus",
+    ".wma": "audio/x-ms-wma"
+  };
+  const data = fs.readFileSync(track.filePath);
+  return {
+    data: data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
+    mimeType: mimeTypes[path.extname(track.filePath).toLowerCase()] || "application/octet-stream"
+  };
 });
 
 ipcMain.handle("music:getSession", () => getMusicSession());
@@ -3005,64 +3019,6 @@ ipcMain.handle("game:launch", async (_event, game) => {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-
-  protocol.handle("reverie-media", (request) => {
-    try {
-      const mediaUrl = new URL(request.url);
-      if (mediaUrl.hostname !== "track") return new Response("Not found", { status: 404 });
-      const id = decodeURIComponent(mediaUrl.pathname.replace(/^\//, ""));
-      const track = readLocalMusicLibrary().find((item) => item.id === id);
-      if (!track || !fs.existsSync(track.filePath)) return new Response("Local audio file not found", { status: 404 });
-      const stat = fs.statSync(track.filePath);
-      if (!stat.isFile()) return new Response("Local audio path is not a file", { status: 404 });
-
-      const mimeTypes = {
-        ".mp3": "audio/mpeg",
-        ".flac": "audio/flac",
-        ".wav": "audio/wav",
-        ".m4a": "audio/mp4",
-        ".aac": "audio/aac",
-        ".ogg": "audio/ogg",
-        ".opus": "audio/ogg; codecs=opus",
-        ".wma": "audio/x-ms-wma"
-      };
-      const contentType = mimeTypes[path.extname(track.filePath).toLowerCase()] || "application/octet-stream";
-      const rangeHeader = request.headers.get("range");
-      let start = 0;
-      let end = Math.max(0, stat.size - 1);
-      let status = 200;
-
-      if (rangeHeader) {
-        const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
-        if (!match) {
-          return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${stat.size}` } });
-        }
-        if (!match[1] && match[2]) {
-          const suffixLength = Math.min(Number(match[2]), stat.size);
-          start = stat.size - suffixLength;
-        } else {
-          start = Number(match[1] || 0);
-          end = match[2] ? Math.min(Number(match[2]), stat.size - 1) : stat.size - 1;
-        }
-        if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start > end || start >= stat.size) {
-          return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${stat.size}` } });
-        }
-        status = 206;
-      }
-
-      const headers = {
-        "Accept-Ranges": "bytes",
-        "Cache-Control": "no-store",
-        "Content-Length": String(end - start + 1),
-        "Content-Type": contentType
-      };
-      if (status === 206) headers["Content-Range"] = `bytes ${start}-${end}/${stat.size}`;
-      const body = request.method === "HEAD" ? null : Readable.toWeb(fs.createReadStream(track.filePath, { start, end }));
-      return new Response(body, { status, headers });
-    } catch (error) {
-      return new Response(error instanceof Error ? error.message : "Unable to read local audio", { status: 500 });
-    }
-  });
 
   // Proxy: only use if PROXY_PORT env var is set
   configureProxy(process.env.PROXY_PORT);

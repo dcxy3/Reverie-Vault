@@ -26,6 +26,7 @@ import {
   X
 } from "lucide-react";
 import type { LocalMusicTrack, MusicPlaylist, MusicProfile, MusicTrack } from "../types";
+import { ResilientImage, useOnlineStatus } from "../network";
 
 type Position = { x: number; y: number };
 type DockSide = "left" | "right" | "top" | "bottom" | null;
@@ -72,6 +73,7 @@ export class MusicPlayerBoundary extends React.Component<{ children: React.React
 }
 
 export function MusicPlayer({ onClose }: { onClose: () => void }) {
+  const isOnline = useOnlineStatus();
   const [position, setPosition] = React.useState<Position>(() => ({ x: Math.max(82, window.innerWidth - 390), y: 76 }));
   const [profile, setProfile] = React.useState<MusicProfile | null>(null);
   const [playlist, setPlaylist] = React.useState<MusicPlaylist | null>(null);
@@ -82,11 +84,13 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   const [error, setError] = React.useState("");
   const [currentIndex, setCurrentIndex] = React.useState(-1);
   const [currentLocalIndex, setCurrentLocalIndex] = React.useState(-1);
-  const [activeSource, setActiveSource] = React.useState<MusicSource>("netease");
+  const [activeSource, setActiveSource] = React.useState<MusicSource>(() => navigator.onLine ? "netease" : "local");
   const [playingSource, setPlayingSource] = React.useState<MusicSource | null>(null);
   const [playing, setPlaying] = React.useState(false);
-  const [currentTime, setCurrentTime] = React.useState(0);
-  const [duration, setDuration] = React.useState(0);
+  const [progress, setProgress] = React.useState<Record<MusicSource, { currentTime: number; duration: number }>>({
+    netease: { currentTime: 0, duration: 0 },
+    local: { currentTime: 0, duration: 0 }
+  });
   const [isPlaylistOpen, setIsPlaylistOpen] = React.useState(false);
   const [loadingLocal, setLoadingLocal] = React.useState(true);
   const [volume, setVolume] = React.useState(0.72);
@@ -95,15 +99,24 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   const [playMode, setPlayMode] = React.useState<PlayMode>("list");
   const [dockSide, setDockSide] = React.useState<DockSide>(null);
   const [isDockCollapsed, setIsDockCollapsed] = React.useState(false);
-  const audioRef = React.useRef<HTMLAudioElement>(null);
+  const cloudAudioRef = React.useRef<HTMLAudioElement>(null);
+  const localAudioRef = React.useRef<HTMLAudioElement>(null);
+  const localAudioUrlRef = React.useRef("");
   const playerRef = React.useRef<HTMLElement>(null);
   const dragRef = React.useRef<{ pointerId: number; dx: number; dy: number } | null>(null);
   const dockTimerRef = React.useRef<number | null>(null);
 
   const cloudTrack = currentIndex >= 0 ? playlist?.tracks[currentIndex] : undefined;
   const localTrack = currentLocalIndex >= 0 ? localTracks[currentLocalIndex] : undefined;
+  const activeProgress = progress[activeSource];
+  const isActiveSourcePlaying = playing && playingSource === activeSource;
 
   const loadPlaylist = React.useCallback(async () => {
+    if (!navigator.onLine) {
+      setLoading(false);
+      setError("当前处于离线模式，网易云音乐暂不可用");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -120,7 +133,7 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
     void window.galLauncher.getMusicSession().then((session) => {
       if (disposed) return;
       setProfile(session.profile || null);
-      if (session.loggedIn) void loadPlaylist();
+      if (session.loggedIn && navigator.onLine) void loadPlaylist();
       else setLoading(false);
     }).catch((caught) => {
       if (!disposed) { setLoading(false); setError(errorMessage(caught)); }
@@ -135,7 +148,7 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   }, []);
 
   React.useEffect(() => {
-    if (!qr?.key || profile) return;
+    if (!qr?.key || profile || !isOnline) return;
     let stopped = false;
     let checking = false;
     const poll = async () => {
@@ -161,17 +174,20 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
     void poll();
     const timer = window.setInterval(poll, 2000);
     return () => { stopped = true; window.clearInterval(timer); };
-  }, [qr?.key, profile, loadPlaylist]);
+  }, [qr?.key, profile, loadPlaylist, isOnline]);
 
   React.useEffect(() => () => {
-    const audio = audioRef.current;
-    if (audio) { audio.pause(); audio.removeAttribute("src"); }
+    for (const audio of [cloudAudioRef.current, localAudioRef.current]) {
+      if (audio) { audio.pause(); audio.removeAttribute("src"); }
+    }
+    if (localAudioUrlRef.current) URL.revokeObjectURL(localAudioUrlRef.current);
     if (dockTimerRef.current !== null) window.clearTimeout(dockTimerRef.current);
   }, []);
 
   React.useEffect(() => {
-    const audio = audioRef.current;
-    if (audio) { audio.volume = volume; audio.muted = muted; }
+    for (const audio of [cloudAudioRef.current, localAudioRef.current]) {
+      if (audio) { audio.volume = volume; audio.muted = muted; }
+    }
   }, [volume, muted]);
 
   React.useEffect(() => {
@@ -190,6 +206,10 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   }, [dockSide, isPlaylistOpen, isVolumeOpen, loading, profile, error]);
 
   async function createQr() {
+    if (!isOnline) {
+      setError("当前处于离线模式，无法生成网易云登录二维码");
+      return;
+    }
     setLoading(true);
     setError("");
     try {
@@ -203,16 +223,18 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   }
 
   async function playCloudAt(index: number) {
-    if (!playlist?.tracks[index] || !audioRef.current) return;
+    if (!isOnline) { setError("当前处于离线模式，网易云音乐暂不可用"); return; }
+    if (!playlist?.tracks[index] || !cloudAudioRef.current) return;
     setError("");
     try {
       const source = await window.galLauncher.getMusicSongUrl(playlist.tracks[index].id);
-      const audio = audioRef.current;
+      localAudioRef.current?.pause();
+      const audio = cloudAudioRef.current;
       audio.src = source.url;
       setCurrentIndex(index);
       setPlayingSource("netease");
       setIsPlaylistOpen(false);
-      setCurrentTime(0);
+      setProgress((current) => ({ ...current, netease: { currentTime: 0, duration: 0 } }));
       await audio.play();
       setPlaying(true);
     } catch (caught) {
@@ -222,16 +244,19 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   }
 
   async function playLocalAt(index: number) {
-    if (!localTracks[index] || !audioRef.current) return;
+    if (!localTracks[index] || !localAudioRef.current) return;
     setError("");
     try {
-      const source = await window.galLauncher.getLocalMusicTrackUrl(localTracks[index].id);
-      const audio = audioRef.current;
-      audio.src = source;
+      const source = await window.galLauncher.readLocalMusicTrack(localTracks[index].id);
+      cloudAudioRef.current?.pause();
+      const audio = localAudioRef.current;
+      if (localAudioUrlRef.current) URL.revokeObjectURL(localAudioUrlRef.current);
+      localAudioUrlRef.current = URL.createObjectURL(new Blob([source.data], { type: source.mimeType }));
+      audio.src = localAudioUrlRef.current;
       setCurrentLocalIndex(index);
       setPlayingSource("local");
       setIsPlaylistOpen(false);
-      setCurrentTime(0);
+      setProgress((current) => ({ ...current, local: { currentTime: 0, duration: 0 } }));
       await audio.play();
       setPlaying(true);
     } catch (caught) {
@@ -256,8 +281,10 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   async function removeLocalTrack(track: LocalMusicTrack) {
     const playingLocalId = localTrack?.id;
     if (playingSource === "local" && localTrack?.id === track.id) {
-      audioRef.current?.pause();
-      audioRef.current?.removeAttribute("src");
+      localAudioRef.current?.pause();
+      localAudioRef.current?.removeAttribute("src");
+      if (localAudioUrlRef.current) URL.revokeObjectURL(localAudioUrlRef.current);
+      localAudioUrlRef.current = "";
       setCurrentLocalIndex(-1);
       setPlayingSource(null);
       setPlaying(false);
@@ -268,19 +295,23 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   }
 
   function togglePlayback() {
-    const audio = audioRef.current;
+    const audio = activeSource === "local" ? localAudioRef.current : cloudAudioRef.current;
     if (!audio) return;
-    if (!playingSource) {
-      if (activeSource === "local") void playLocalAt(0);
-      else void playCloudAt(0);
+    if (!audio.src) {
+      if (activeSource === "local") void playLocalAt(Math.max(0, currentLocalIndex));
+      else void playCloudAt(Math.max(0, currentIndex));
       return;
     }
-    if (audio.paused) void audio.play().then(() => setPlaying(true)).catch((caught) => setError(errorMessage(caught)));
+    if (audio.paused) {
+      (activeSource === "local" ? cloudAudioRef.current : localAudioRef.current)?.pause();
+      setPlayingSource(activeSource);
+      void audio.play().then(() => setPlaying(true)).catch((caught) => setError(errorMessage(caught)));
+    }
     else { audio.pause(); setPlaying(false); }
   }
 
-  function adjacent(delta: number) {
-    const isLocal = playingSource === "local" || (!playingSource && activeSource === "local");
+  function adjacent(delta: number, source: MusicSource = activeSource) {
+    const isLocal = source === "local";
     const tracks = isLocal ? localTracks : (playlist?.tracks || []);
     const selectedIndex = isLocal ? currentLocalIndex : currentIndex;
     if (!tracks.length) return;
@@ -298,12 +329,11 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
 
   async function logout() {
     if (playingSource === "netease") {
-      audioRef.current?.pause();
-      audioRef.current?.removeAttribute("src");
+      cloudAudioRef.current?.pause();
+      cloudAudioRef.current?.removeAttribute("src");
       setPlayingSource(null);
       setPlaying(false);
-      setCurrentTime(0);
-      setDuration(0);
+      setProgress((current) => ({ ...current, netease: { currentTime: 0, duration: 0 } }));
     }
     await window.galLauncher.logoutMusic();
     setProfile(null);
@@ -412,13 +442,13 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
           </button>
 
           <div className="music-progress-row">
-            <span>{formatTime(currentTime)}</span>
-            <input type="range" min={0} max={duration || 1} step={0.1} value={Math.min(currentTime, duration || 1)} aria-label="播放进度" onChange={(event) => { const value = Number(event.target.value); if (audioRef.current) audioRef.current.currentTime = value; setCurrentTime(value); }} />
-            <span>{formatTime(duration)}</span>
+            <span>{formatTime(activeProgress.currentTime)}</span>
+            <input type="range" min={0} max={activeProgress.duration || 1} step={0.1} value={Math.min(activeProgress.currentTime, activeProgress.duration || 1)} aria-label="本地音乐播放进度" onChange={(event) => { const value = Number(event.target.value); if (localAudioRef.current) localAudioRef.current.currentTime = value; setProgress((current) => ({ ...current, local: { ...current.local, currentTime: value } })); }} />
+            <span>{formatTime(activeProgress.duration)}</span>
           </div>
           <div className="music-controls">
             <button type="button" onClick={() => adjacent(-1)} aria-label="上一首"><SkipBack size={18} /></button>
-            <button type="button" className="music-play-button" onClick={togglePlayback} aria-label={playing ? "暂停" : "播放"}>{playing ? <Pause size={19} /> : <Play size={19} fill="currentColor" />}</button>
+            <button type="button" className="music-play-button" onClick={togglePlayback} aria-label={isActiveSourcePlaying ? "暂停" : "播放"}>{isActiveSourcePlaying ? <Pause size={19} /> : <Play size={19} fill="currentColor" />}</button>
             <button type="button" onClick={() => adjacent(1)} aria-label="下一首"><SkipForward size={18} /></button>
             <button type="button" className={playMode === "shuffle" ? "active" : undefined} title={playMode === "list" ? "当前：列表顺序" : "当前：随机播放"} onClick={() => setPlayMode((mode) => mode === "list" ? "shuffle" : "list")}>{playMode === "shuffle" ? <Shuffle size={17} /> : <ListOrdered size={17} />}</button>
             <div className="music-volume-control">
@@ -431,7 +461,7 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
             <div className="music-track-list">
               {localTracks.length ? localTracks.map((track, index) => <div className="music-local-track-row" key={track.id}>
                 <button type="button" className={`music-track ${track.id === localTrack?.id ? "active" : ""}`} onClick={() => void playLocalAt(index)}>
-                  <span className="music-track-index">{track.id === localTrack?.id && playing ? <Music2 size={13} /> : index + 1}</span>
+                  <span className="music-track-index">{track.id === localTrack?.id && playingSource === "local" && playing ? <Music2 size={13} /> : index + 1}</span>
                   <span className="music-track-copy"><strong>{track.title}</strong><small>本地文件 · {track.format}</small></span>
                   <span>{track.format}</span>
                 </button>
@@ -440,6 +470,12 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
             </div>
           )}
         </>
+      ) : !isOnline ? (
+        <div className="music-login music-offline-state">
+          <div className="music-login-mark"><Cloud size={28} /></div>
+          <strong>网易云音乐暂时离线</strong>
+          <span>切换到“本地音乐”仍可正常播放已导入的歌曲</span>
+        </div>
       ) : !profile ? (
         <div className="music-login">
           <div className="music-login-mark"><QrCode size={28} /></div>
@@ -454,29 +490,29 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
       ) : (
         <>
           <div className="music-account">
-            {profile.avatarUrl ? <img src={profile.avatarUrl} alt="" /> : <Music2 size={20} />}
+            <ResilientImage src={profile.avatarUrl} alt="" fallback={<Music2 size={20} />} />
             <div><strong>{profile.nickname}</strong><span>{playlist?.name || "正在读取喜欢歌单"}</span></div>
             <button type="button" className="music-icon-button" title="退出网易云账号" onClick={() => void logout()}><LogOut size={16} /></button>
           </div>
 
           <button type="button" className="music-now-playing" aria-expanded={isPlaylistOpen} onClick={() => setIsPlaylistOpen((open) => !open)}>
-            {cloudTrack?.coverUrl || playlist?.coverUrl ? <img src={cloudTrack?.coverUrl || playlist?.coverUrl} alt="" /> : <div className="music-cover-placeholder"><Heart size={24} /></div>}
+            <ResilientImage src={cloudTrack?.coverUrl || playlist?.coverUrl} alt="" fallback={<div className="music-cover-placeholder"><Heart size={24} /></div>} />
             <div><strong>{cloudTrack?.name || "选择一首歌开始播放"}</strong><span>{cloudTrack?.artists || `点击展开歌单 · ${playlist?.trackCount || 0} 首`}</span></div>
             <ListMusic size={17} />
           </button>
 
           <div className="music-progress-row">
-            <span>{formatTime(currentTime)}</span>
-            <input type="range" min={0} max={duration || 1} step={0.1} value={Math.min(currentTime, duration || 1)} aria-label="播放进度" onChange={(event) => {
+            <span>{formatTime(activeProgress.currentTime)}</span>
+            <input type="range" min={0} max={activeProgress.duration || 1} step={0.1} value={Math.min(activeProgress.currentTime, activeProgress.duration || 1)} aria-label="网易云音乐播放进度" onChange={(event) => {
               const value = Number(event.target.value);
-              if (audioRef.current) audioRef.current.currentTime = value;
-              setCurrentTime(value);
+              if (cloudAudioRef.current) cloudAudioRef.current.currentTime = value;
+              setProgress((current) => ({ ...current, netease: { ...current.netease, currentTime: value } }));
             }} />
-            <span>{formatTime(duration)}</span>
+            <span>{formatTime(activeProgress.duration)}</span>
           </div>
           <div className="music-controls">
             <button type="button" onClick={() => adjacent(-1)} aria-label="上一首"><SkipBack size={18} /></button>
-            <button type="button" className="music-play-button" onClick={togglePlayback} aria-label={playing ? "暂停" : "播放"}>{playing ? <Pause size={19} /> : <Play size={19} fill="currentColor" />}</button>
+            <button type="button" className="music-play-button" onClick={togglePlayback} aria-label={isActiveSourcePlaying ? "暂停" : "播放"}>{isActiveSourcePlaying ? <Pause size={19} /> : <Play size={19} fill="currentColor" />}</button>
             <button type="button" onClick={() => adjacent(1)} aria-label="下一首"><SkipForward size={18} /></button>
             <button type="button" className={playMode === "shuffle" ? "active" : undefined} title={playMode === "list" ? "当前：列表顺序" : "当前：随机播放"} aria-label={playMode === "list" ? "切换为随机播放" : "切换为列表顺序"} onClick={() => setPlayMode((mode) => mode === "list" ? "shuffle" : "list")}>
               {playMode === "shuffle" ? <Shuffle size={17} /> : <ListOrdered size={17} />}
@@ -495,7 +531,7 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
             <div className="music-track-list">
               {(playlist?.tracks || []).map((track: MusicTrack, index) => (
                 <button type="button" className={`music-track ${index === currentIndex ? "active" : ""}`} key={track.id} onClick={() => void playCloudAt(index)}>
-                  <span className="music-track-index">{index === currentIndex && playing ? <Music2 size={13} /> : index + 1}</span>
+                  <span className="music-track-index">{index === currentIndex && playingSource === "netease" && playing ? <Music2 size={13} /> : index + 1}</span>
                   <span className="music-track-copy"><strong>{track.name}</strong><small>{track.artists}{track.album ? ` · ${track.album}` : ""}</small></span>
                   <span>{formatTime(track.durationMs / 1000)}</span>
                 </button>
@@ -505,7 +541,8 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
         </>
       )}
       {error && <div className="music-error">{error}</div>}
-      <audio ref={audioRef} onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)} onDurationChange={(event) => setDuration(event.currentTarget.duration || 0)} onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => adjacent(1)} onError={() => setError("音频无法播放：文件可能已移动，或格式不受 Chromium 支持")} />
+      <audio ref={cloudAudioRef} onTimeUpdate={(event) => setProgress((current) => ({ ...current, netease: { ...current.netease, currentTime: event.currentTarget.currentTime } }))} onDurationChange={(event) => setProgress((current) => ({ ...current, netease: { ...current.netease, duration: event.currentTarget.duration || 0 } }))} onPlay={() => { setPlayingSource("netease"); setPlaying(true); }} onPause={() => { if (playingSource === "netease") setPlaying(false); }} onEnded={() => adjacent(1, "netease")} onError={() => setError("网易云音频无法播放，请检查网络后重试")} />
+      <audio ref={localAudioRef} onTimeUpdate={(event) => setProgress((current) => ({ ...current, local: { ...current.local, currentTime: event.currentTarget.currentTime } }))} onDurationChange={(event) => setProgress((current) => ({ ...current, local: { ...current.local, duration: event.currentTarget.duration || 0 } }))} onPlay={() => { setPlayingSource("local"); setPlaying(true); }} onPause={() => { if (playingSource === "local") setPlaying(false); }} onEnded={() => adjacent(1, "local")} onError={(event) => setError(`本地音频无法播放（媒体错误 ${event.currentTarget.error?.code || "未知"}），请确认格式受 Chromium 支持`)} />
     </section>
   );
 }

@@ -9,6 +9,7 @@ import {
   Maximize,
   Minimize,
   Music2,
+  ImageOff,
   Image as ImageIcon,
   Pin,
   Play,
@@ -22,6 +23,7 @@ import { formatPlayTime } from "../utils";
 import type { LibraryController } from "../useLibrary";
 import { LocalShelf } from "../components/LocalShelf";
 import { MusicPlayer, MusicPlayerBoundary } from "../components/MusicPlayer";
+import { isRemoteResource, ResilientImage, useOnlineStatus } from "../network";
 import reverieVaultIcon from "../assets/reverie-vault-icon.png";
 
 type GlobalSearchResult = {
@@ -67,6 +69,7 @@ function mysteryRandom(seed: number) {
 }
 
 export function CinemaLayout({ lib }: { lib: LibraryController }) {
+  const isOnline = useOnlineStatus();
   const [isChromePinned, setIsChromePinned] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
   const [isMusicOpen, setIsMusicOpen] = React.useState(false);
@@ -204,12 +207,12 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
   return (
     <>
       <div className="image-preload" aria-hidden="true">
-        {remoteImagePaths.map((imagePath) => (
+        {isOnline && remoteImagePaths.map((imagePath) => (
           <img key={imagePath} src={imagePath} alt="" />
         ))}
       </div>
-      <div className="backdrop" style={{ backgroundImage: selectedImage ? `url("${selectedImage}")` : undefined }} />
-      {fadingImage && <div className="backdrop fading" style={{ backgroundImage: `url("${fadingImage}")` }} />}
+      <div className="backdrop" style={{ backgroundImage: selectedImage && (isOnline || !isRemoteResource(selectedImage)) ? `url("${selectedImage}")` : undefined }} />
+      {fadingImage && (isOnline || !isRemoteResource(fadingImage)) && <div className="backdrop fading" style={{ backgroundImage: `url("${fadingImage}")` }} />}
       <div className="backdrop-mask" />
       {showMysteryEffect && <div className="ciallo-celebration" key={mysteryBurst} aria-hidden="true">
         {Array.from({ length: 54 }, (_, index) => {
@@ -300,6 +303,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
             </div>}
           </div>
           <div className="stage-stats">
+            {!isOnline && <span className="offline-status">离线模式</span>}
             <span>{formatPlayTime(totalSeconds)}</span>
             <span>{counts.total} 部作品</span>
             <span>进行中 {counts.active}</span>
@@ -366,7 +370,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
                     }}
                   >
                     <div className="collection-poster-art">
-                      {posterImage ? <img src={posterImage} alt="" /> : <Gamepad2 size={24} />}
+                      <ResilientImage src={posterImage} alt="" fallback={<span className="cover-missing-state"><ImageOff size={25} /><b>封面丢失了喵</b></span>} />
                       {game.playCount > 0 && <span className="collection-badge">{Math.min(game.playCount, 99)}</span>}
                     </div>
                     <div className="collection-poster-title">
@@ -390,7 +394,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
         ) : selected ? (
           <section className="feature">
             <div className="showcase-art">
-              {!selectedImage && <Gamepad2 size={72} />}
+              {(!selectedImage || (!isOnline && isRemoteResource(selectedImage))) && <div className="showcase-cover-missing"><ImageOff size={54} /><span>封面丢失了喵</span><small>本地功能仍可正常使用</small></div>}
               <div className="showcase-glow" />
               <section className={`shelf ${isChromePinned ? "is-pinned" : ""}`}>
                 <div className="shelf-title">
@@ -411,7 +415,7 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
                   {filteredGames.map((game, index) => (
                     <button key={game.id} className={`shelf-card ${game.id === selected?.id ? "active" : ""}`} style={{ '--i': index } as React.CSSProperties} onClick={() => setSelectedId(game.id)} onContextMenu={(e) => openContextMenu(e, game)} aria-label={game.title}>
                       <div className="shelf-cover">
-                        {imageCache[game.coverPath] ? <img src={imageCache[game.coverPath]} alt="" /> : <Gamepad2 size={30} />}
+                        <ResilientImage src={imageCache[game.coverPath]} alt="" fallback={<span className="cover-missing-state"><ImageOff size={24} /><b>封面丢失了喵</b></span>} />
                         <span>{game.title}</span>
                       </div>
                     </button>

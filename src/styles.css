@@ -696,6 +696,51 @@ button {
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
 }
 
+.stage-stats .offline-status {
+  border-color: rgba(255, 205, 125, 0.42);
+  color: #fff0cf;
+  background: rgba(103, 67, 30, 0.55);
+}
+
+.cover-missing-state {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  margin: 0 !important;
+  padding: 18px;
+  color: rgba(236, 247, 255, 0.86);
+  background: linear-gradient(145deg, rgba(17, 29, 41, 0.88), rgba(46, 39, 59, 0.84));
+  text-align: center;
+  letter-spacing: 0 !important;
+}
+
+.cover-missing-state b {
+  max-width: 100%;
+  font-size: 11px;
+  line-height: 1.45;
+  white-space: normal;
+}
+
+.showcase-cover-missing {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 12px;
+  color: rgba(238, 248, 255, 0.82);
+  background: radial-gradient(circle at center, rgba(63, 87, 108, 0.28), transparent 38%);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.55);
+}
+
+.showcase-cover-missing span { font-size: 18px; font-weight: 800; letter-spacing: 0.08em; }
+.showcase-cover-missing small { color: rgba(218, 235, 246, 0.58); font-size: 11px; }
+
 /* ================================================
    HERO AREA
    ================================================ */

@@ -159,7 +159,7 @@ export interface LauncherApi {
   loadLocalMusicLibrary: () => Promise<LocalMusicTrack[]>;
   pickLocalMusicTracks: () => Promise<LocalMusicTrack[]>;
   removeLocalMusicTrack: (id: string) => Promise<LocalMusicTrack[]>;
-  getLocalMusicTrackUrl: (id: string) => Promise<string>;
+  readLocalMusicTrack: (id: string) => Promise<{ data: ArrayBuffer; mimeType: string }>;
   onFullscreenChanged: (callback: (payload: { fullscreen: boolean }) => void) => () => void;
   findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
   exportLibrary: (games: Game[], readingItems: ReadingItem[]) => Promise<string>;

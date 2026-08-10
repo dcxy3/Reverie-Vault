@@ -270,6 +270,12 @@ export function useLibrary() {
   }
 
   async function openMetadataCandidates(game: Game, keyword = "") {
+    if (!navigator.onLine) {
+      setNotice("当前处于离线模式，已跳过在线资料搜索");
+      setMetadataCandidates([]);
+      setCandidateGameId(game.id);
+      return;
+    }
     setIsSearchingMetadata(true);
     setMetadataCandidates([]);
     setCandidateGameId(game.id);
@@ -346,6 +352,10 @@ export function useLibrary() {
   }
 
   async function rescanMetadata(game: Game) {
+    if (!navigator.onLine) {
+      setNotice("当前处于离线模式，无法重新获取在线资料");
+      return;
+    }
     try {
       const metadata = await window.galLauncher.rescanMetadata(game);
       const next = mergeMetadata(game, metadata);
@@ -379,6 +389,10 @@ export function useLibrary() {
   }
 
   async function findCovers(game: Game) {
+    if (!navigator.onLine) {
+      setNotice("当前处于离线模式，无法查找在线封面");
+      return;
+    }
     setIsFindingCovers(true);
     setCoverCandidates([]);
     setNotice("正在查找横版封面候选");
