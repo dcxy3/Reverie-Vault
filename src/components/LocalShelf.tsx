@@ -265,7 +265,9 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
                 : <div className="local-reader-text">{activePage.paragraphs?.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>}
               {activePage.pdfPath && <div className="manga-zoom-control">
                 <button type="button" className={mangaZoom === "page-width" ? "active" : ""} onClick={() => setMangaZoom("page-width")} title="自适应宽度" aria-label="自适应宽度"><ScanLine size={16} /></button>
-                <input type="range" min="50" max="180" step="10" value={typeof mangaZoom === "number" ? mangaZoom : 100} onChange={(event) => setMangaZoom(Number(event.target.value))} aria-label="漫画缩放比例" />
+                <div className="manga-zoom-slider">
+                  <input type="range" min="50" max="180" step="10" value={typeof mangaZoom === "number" ? mangaZoom : 100} onInput={(event) => setMangaZoom(Number(event.currentTarget.value))} aria-label="漫画缩放比例" />
+                </div>
                 <span>{mangaZoom === "page-width" ? "适应" : `${mangaZoom}%`}</span>
               </div>}
               <nav className="local-reader-pagination" aria-label="阅读翻页">

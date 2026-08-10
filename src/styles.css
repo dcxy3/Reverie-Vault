@@ -2377,14 +2377,52 @@ textarea:focus-visible {
   background: rgba(86, 165, 207, 0.55);
 }
 
-.manga-zoom-control input[type="range"] {
-  width: 5px;
+.manga-zoom-slider {
+  position: relative;
+  width: 28px;
   height: 112px;
   margin: 1px 0;
+}
+
+.manga-zoom-control input[type="range"] {
+  position: absolute;
+  top: 42px;
+  left: -42px;
+  width: 112px;
+  height: 28px;
+  margin: 0;
+  appearance: none;
   cursor: pointer;
-  accent-color: #9ed9f7;
-  writing-mode: vertical-lr;
-  direction: rtl;
+  outline: 0;
+  background: transparent;
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.manga-zoom-control input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border: 1px solid rgba(220, 241, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(205, 234, 250, 0.18);
+}
+
+.manga-zoom-control input[type="range"]::-webkit-slider-thumb {
+  width: 14px;
+  height: 14px;
+  margin-top: -6px;
+  appearance: none;
+  border: 2px solid rgba(239, 250, 255, 0.88);
+  border-radius: 50%;
+  background: rgba(86, 165, 207, 0.94);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 10px rgba(158, 217, 247, 0.28);
+}
+
+.manga-zoom-control input[type="range"]:focus-visible {
+  outline: none;
+}
+
+.manga-zoom-control input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px rgba(158, 217, 247, 0.26), 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .manga-zoom-control span {
