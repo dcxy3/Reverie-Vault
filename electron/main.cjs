@@ -5,7 +5,9 @@ const crypto = require("node:crypto");
 const { spawn, execFile, fork } = require("node:child_process");
 
 // Keep existing libraries and settings available after the visible product rename.
-app.setPath("userData", path.join(app.getPath("appData"), "gal-launcher"));
+const legacyUserDataPath = path.join(app.getPath("appData"), "gal-launcher");
+const reverieUserDataPath = path.join(app.getPath("appData"), "Reverie Vault");
+app.setPath("userData", fs.existsSync(legacyUserDataPath) ? legacyUserDataPath : reverieUserDataPath);
 
   const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
   let mainWindow;

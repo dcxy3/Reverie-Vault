@@ -1,8 +1,8 @@
 {
-  "name": "gal-launcher",
+  "name": "reverie-vault",
   "version": "0.3.0",
   "private": true,
-  "description": "A local Galgame launcher for Windows.",
+  "description": "A local game, light novel, manga and music library for Windows.",
   "main": "electron/main.cjs",
   "author": "Reverie Vault",
   "license": "MIT",
@@ -30,6 +30,7 @@
     "build": "tsc && vite build",
     "dist": "npm run build && electron-builder --win dir",
     "dist:portable": "npm run build && electron-builder --win portable",
+    "dist:installer": "npm run build && electron-builder --win nsis",
     "start": "cross-env NODE_ENV=production electron .",
     "preview": "vite preview --host 127.0.0.1"
   },
@@ -62,25 +63,33 @@
       ]
     },
     "portable": {
-      "artifactName": "Reverie Vault.exe"
+      "artifactName": "Reverie Vault Portable ${version}.${ext}"
+    },
+    "nsis": {
+      "artifactName": "Reverie Vault Setup ${version}.${ext}",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Reverie Vault"
     }
   },
   "dependencies": {
-    "@neteasecloudmusicapienhanced/api": "file:vendor/neteasecloudmusicapienhanced-api-4.30.1.tgz",
+    "@neteasecloudmusicapienhanced/api": "file:vendor/neteasecloudmusicapienhanced-api-4.30.1.tgz"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.0.4",
     "concurrently": "^9.2.1",
     "cross-env": "^10.0.0",
+    "electron": "^38.2.2",
+    "electron-builder": "^26.8.1",
     "lucide-react": "^0.546.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "typescript": "^5.9.3",
     "vite": "^7.1.12",
     "wait-on": "^9.0.1"
-  },
-  "devDependencies": {
-    "@types/react": "^19.2.14",
-    "@types/react-dom": "^19.2.3",
-    "electron": "^38.2.2",
-    "electron-builder": "^26.8.1"
   }
 }
