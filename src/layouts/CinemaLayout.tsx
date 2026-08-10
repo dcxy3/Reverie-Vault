@@ -19,6 +19,11 @@ import { formatPlayTime } from "../utils";
 import type { LibraryController } from "../useLibrary";
 import { LocalShelf } from "../components/LocalShelf";
 
+function mysteryRandom(seed: number) {
+  const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return value - Math.floor(value);
+}
+
 export function CinemaLayout({ lib }: { lib: LibraryController }) {
   const [isChromePinned, setIsChromePinned] = React.useState(false);
   const [isFullscreen, setIsFullscreen] = React.useState(false);
@@ -103,8 +108,14 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
       {fadingImage && <div className="backdrop fading" style={{ backgroundImage: `url("${fadingImage}")` }} />}
       <div className="backdrop-mask" />
       {showMysteryEffect && <div className="ciallo-celebration" key={mysteryBurst} aria-hidden="true">
-        {Array.from({ length: 54 }, (_, index) => <span className="ciallo-text" key={`text-${index}`} style={{ "--ciallo-x": `${4 + (index % 9) * 11.5}%`, "--ciallo-y": `${6 + Math.floor(index / 9) * 17}%`, "--ciallo-delay": `${(index % 12) * 0.07}s`, "--ciallo-angle": `${(index % 2 ? 1 : -1) * (6 + index % 15)}deg` } as React.CSSProperties}>Ciallo～(∠・ω&lt;)⌒★</span>)}
-        {Array.from({ length: 12 }, (_, burstIndex) => <span className="ciallo-firework" key={`firework-${burstIndex}`} style={{ "--firework-x": `${8 + (burstIndex % 4) * 28}%`, "--firework-y": `${14 + Math.floor(burstIndex / 4) * 32}%`, "--firework-delay": `${0.12 + (burstIndex % 6) * 0.24}s`, "--firework-color": ["#ff78c8", "#72ddff", "#ffe477", "#a88cff", "#8dffad", "#ff9f6e"][burstIndex % 6] } as React.CSSProperties}>{Array.from({ length: 16 }, (_, ray) => <i key={ray} style={{ "--ray": ray } as React.CSSProperties} />)}</span>)}
+        {Array.from({ length: 54 }, (_, index) => {
+          const seed = mysteryBurst * 101 + index * 7;
+          return <span className="ciallo-text" key={`text-${index}`} style={{ "--ciallo-x": `${4 + mysteryRandom(seed + 1) * 88}%`, "--ciallo-y": `${6 + mysteryRandom(seed + 2) * 86}%`, "--ciallo-delay": `${mysteryRandom(seed + 3) * 1.15}s`, "--ciallo-angle": `${-24 + mysteryRandom(seed + 4) * 48}deg`, "--ciallo-size": `${0.78 + mysteryRandom(seed + 5) * 0.55}` } as React.CSSProperties}>Ciallo～(∠・ω&lt;)⌒★</span>;
+        })}
+        {Array.from({ length: 12 }, (_, burstIndex) => {
+          const seed = mysteryBurst * 173 + burstIndex * 11;
+          return <span className="ciallo-firework" key={`firework-${burstIndex}`} style={{ "--firework-x": `${7 + mysteryRandom(seed + 1) * 86}%`, "--firework-y": `${10 + mysteryRandom(seed + 2) * 76}%`, "--firework-delay": `${0.08 + mysteryRandom(seed + 3) * 1.45}s`, "--firework-color": ["#ff78c8", "#72ddff", "#ffe477", "#a88cff", "#8dffad", "#ff9f6e"][burstIndex % 6] } as React.CSSProperties}>{Array.from({ length: 16 }, (_, ray) => <i key={ray} style={{ "--ray": ray } as React.CSSProperties} />)}</span>;
+        })}
       </div>}
 
       <div className="rail-reveal" aria-hidden="true" />

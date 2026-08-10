@@ -381,7 +381,7 @@ button {
   left: var(--ciallo-x);
   width: max-content;
   color: #ffffff;
-  font-size: clamp(13px, 1.6vw, 25px);
+  font-size: calc(clamp(13px, 1.6vw, 25px) * var(--ciallo-size));
   font-weight: 900;
   text-shadow: 0 2px 7px rgba(0, 0, 0, 0.72), 0 0 10px #ff85cb, 0 0 22px rgba(94, 210, 255, 0.9);
   animation: ciallo-pop 3.3s var(--ease-out) var(--ciallo-delay) both;
