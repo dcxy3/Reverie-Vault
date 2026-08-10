@@ -3,11 +3,11 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn, execFile, fork } = require("node:child_process");
-const { pathToFileURL } = require("node:url");
+const { Readable } = require("node:stream");
 
 // Keep existing libraries and settings available after the visible product rename.
 app.setPath("userData", path.join(app.getPath("appData"), "gal-launcher"));
-protocol.registerSchemesAsPrivileged([{ scheme: "reverie-media", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
+protocol.registerSchemesAsPrivileged([{ scheme: "reverie-media", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } }]);
 
   const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
   let mainWindow;
@@ -3013,7 +3013,52 @@ app.whenReady().then(() => {
       const id = decodeURIComponent(mediaUrl.pathname.replace(/^\//, ""));
       const track = readLocalMusicLibrary().find((item) => item.id === id);
       if (!track || !fs.existsSync(track.filePath)) return new Response("Local audio file not found", { status: 404 });
-      return net.fetch(pathToFileURL(track.filePath).toString(), { headers: request.headers });
+      const stat = fs.statSync(track.filePath);
+      if (!stat.isFile()) return new Response("Local audio path is not a file", { status: 404 });
+
+      const mimeTypes = {
+        ".mp3": "audio/mpeg",
+        ".flac": "audio/flac",
+        ".wav": "audio/wav",
+        ".m4a": "audio/mp4",
+        ".aac": "audio/aac",
+        ".ogg": "audio/ogg",
+        ".opus": "audio/ogg; codecs=opus",
+        ".wma": "audio/x-ms-wma"
+      };
+      const contentType = mimeTypes[path.extname(track.filePath).toLowerCase()] || "application/octet-stream";
+      const rangeHeader = request.headers.get("range");
+      let start = 0;
+      let end = Math.max(0, stat.size - 1);
+      let status = 200;
+
+      if (rangeHeader) {
+        const match = /^bytes=(\d*)-(\d*)$/i.exec(rangeHeader.trim());
+        if (!match) {
+          return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${stat.size}` } });
+        }
+        if (!match[1] && match[2]) {
+          const suffixLength = Math.min(Number(match[2]), stat.size);
+          start = stat.size - suffixLength;
+        } else {
+          start = Number(match[1] || 0);
+          end = match[2] ? Math.min(Number(match[2]), stat.size - 1) : stat.size - 1;
+        }
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start > end || start >= stat.size) {
+          return new Response(null, { status: 416, headers: { "Content-Range": `bytes */${stat.size}` } });
+        }
+        status = 206;
+      }
+
+      const headers = {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-store",
+        "Content-Length": String(end - start + 1),
+        "Content-Type": contentType
+      };
+      if (status === 206) headers["Content-Range"] = `bytes ${start}-${end}/${stat.size}`;
+      const body = request.method === "HEAD" ? null : Readable.toWeb(fs.createReadStream(track.filePath, { start, end }));
+      return new Response(body, { status, headers });
     } catch (error) {
       return new Response(error instanceof Error ? error.message : "Unable to read local audio", { status: 500 });
     }
