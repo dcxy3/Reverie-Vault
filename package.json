@@ -28,9 +28,9 @@
   "scripts": {
     "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "build": "tsc && vite build",
-    "dist": "npm run build && electron-builder --win dir",
-    "dist:portable": "npm run build && electron-builder --win portable",
-    "dist:installer": "npm run build && electron-builder --win nsis",
+    "dist": "npm run build && electron-builder --win dir && node scripts/brand-windows-exe.cjs",
+    "dist:portable": "npm run dist && electron-builder --prepackaged release/win-unpacked --win portable",
+    "dist:installer": "npm run dist && electron-builder --prepackaged release/win-unpacked --win nsis",
     "start": "cross-env NODE_ENV=production electron .",
     "preview": "vite preview --host 127.0.0.1"
   },
@@ -52,7 +52,7 @@
     "icon": "build/icon.ico",
     "win": {
       "icon": "build/icon.ico",
-      "signAndEditExecutable": true,
+      "signAndEditExecutable": false,
       "legalTrademarks": "Reverie Vault",
       "target": [
         {
