@@ -2523,6 +2523,18 @@ textarea:focus-visible {
 .music-player.is-docked-bottom.is-dock-collapsed { transform: translateY(calc(100% - 30px)); }
 .music-player.is-dock-collapsed { box-shadow: 0 12px 38px rgba(0, 0, 0, 0.32); }
 
+.music-player.is-dock-collapsed {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+.music-player.is-dock-collapsed > :not(.music-dock-handle) {
+  visibility: hidden;
+  opacity: 0;
+}
+
 .music-dock-handle {
   position: absolute;
   top: 0;
