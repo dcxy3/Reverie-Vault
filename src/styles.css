@@ -2259,29 +2259,43 @@ textarea:focus-visible {
 }
 
 .local-reader.manga-reader {
-  padding-bottom: 20px;
+  display: block;
+  padding: 0 0 0 52px;
+}
+
+.manga-reader .local-reader-scroll {
+  overflow: hidden;
+  scrollbar-width: none;
+}
+
+.manga-reader .local-reader-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .manga-reader .local-reader-page {
-  width: min(100%, 1120px);
+  width: 100%;
   height: 100%;
-  padding-top: 30px;
-  padding-bottom: 0;
+  padding: 0;
 }
 
+.manga-reader .local-reader-kicker,
 .manga-reader .local-reader-page h2 {
-  margin-bottom: 14px;
-  font-size: 20px;
+  display: none;
+}
+
+.local-reader-pdf-viewport {
+  width: 100%;
+  height: 100vh;
+  overflow: hidden;
+  background: rgba(8, 17, 25, 0.18);
 }
 
 .local-reader-pdf {
   display: block;
-  width: 100%;
-  height: calc(100vh - 225px);
-  min-height: 460px;
+  width: calc(100% + 18px);
+  height: 100%;
   border: 0;
-  border-radius: 10px;
-  background: rgba(8, 17, 25, 0.45);
+  background: transparent;
 }
 
 .local-reader-pdf-state {
@@ -2296,7 +2310,13 @@ textarea:focus-visible {
 }
 
 .manga-reader .local-reader-pagination {
-  margin-top: 14px;
+  position: fixed;
+  bottom: 18px;
+  left: calc(50% + 26px);
+  z-index: 2;
+  margin: 0;
+  transform: translateX(-50%);
+  background: rgba(11, 31, 47, 0.76);
 }
 
 .local-reader-kicker {

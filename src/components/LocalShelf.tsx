@@ -235,7 +235,7 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
               <h2>{reader.title}</h2>
               {activePage.pdfPath
                 ? mangaPdfUrl
-                  ? <iframe className="local-reader-pdf" src={`${mangaPdfUrl}#toolbar=0&navpanes=0&view=FitH`} title={activePage.chapter} />
+                  ? <div className="local-reader-pdf-viewport"><iframe className="local-reader-pdf" src={`${mangaPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} title={activePage.chapter} /></div>
                   : <div className="local-reader-pdf-state">{mangaPdfError || "正在读取漫画章节…"}</div>
                 : <div className="local-reader-text">{activePage.paragraphs?.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>}
               <nav className="local-reader-pagination" aria-label="阅读翻页">
