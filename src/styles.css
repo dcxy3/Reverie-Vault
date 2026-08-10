@@ -2258,6 +2258,36 @@ textarea:focus-visible {
   animation: local-reader-rise 300ms var(--ease-out) both;
 }
 
+.local-reader.manga-reader {
+  padding-bottom: 20px;
+}
+
+.manga-reader .local-reader-page {
+  width: min(100%, 1120px);
+  height: 100%;
+  padding-top: 30px;
+  padding-bottom: 0;
+}
+
+.manga-reader .local-reader-page h2 {
+  margin-bottom: 14px;
+  font-size: 20px;
+}
+
+.local-reader-pdf {
+  display: block;
+  width: 100%;
+  height: calc(100vh - 225px);
+  min-height: 460px;
+  border: 0;
+  border-radius: 10px;
+  background: rgba(8, 17, 25, 0.45);
+}
+
+.manga-reader .local-reader-pagination {
+  margin-top: 14px;
+}
+
 .local-reader-kicker {
   color: #b9e4ff;
   font-size: 10px;

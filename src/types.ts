@@ -92,6 +92,16 @@ export interface ReadingTextDocument {
   content: string;
 }
 
+export interface ReadingMangaChapter {
+  title: string;
+  fileUrl: string;
+}
+
+export interface ReadingMangaDocument {
+  title: string;
+  chapters: ReadingMangaChapter[];
+}
+
 export interface ReadingCoverCandidate {
   id: string;
   title: string;
@@ -132,6 +142,7 @@ export interface LauncherApi {
   saveReadingLibrary: (items: ReadingItem[]) => Promise<ReadingItem[]>;
   pickReadingItems: (kind: ReadingItemKind) => Promise<PickedReadingItem[]>;
   readNovel: (itemId: string) => Promise<ReadingTextDocument>;
+  readManga: (itemId: string) => Promise<ReadingMangaDocument>;
   findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
   exportLibrary: (games: Game[]) => Promise<string>;
   importLibrary: () => Promise<Game[] | null>;

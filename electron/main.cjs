@@ -2148,11 +2148,39 @@ ipcMain.handle("reader:readNovel", (_event, itemId) => {
   return { title: item.title, content: fs.readFileSync(item.filePath, "utf8") };
 });
 
+function findPdfChapters(rootPath) {
+  const chapters = [];
+  const visit = (directory) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(entryPath);
+      else if (entry.isFile() && path.extname(entry.name).toLowerCase() === ".pdf") chapters.push(entryPath);
+    }
+  };
+  visit(rootPath);
+  return chapters.sort((left, right) => left.localeCompare(right, "zh-CN", { numeric: true, sensitivity: "base" }));
+}
+
+ipcMain.handle("reader:readManga", (_event, itemId) => {
+  const item = readReadingLibrary().find((entry) => entry.id === itemId && entry.kind === "manga");
+  if (!item) throw new Error("Reading item was not found");
+  if (!fs.statSync(item.filePath).isDirectory()) throw new Error("The imported comic is not a folder");
+  const files = findPdfChapters(item.filePath);
+  if (!files.length) throw new Error("No PDF chapters were found in this folder");
+  return {
+    title: item.title,
+    chapters: files.map((filePath) => ({
+      title: path.relative(item.filePath, filePath).replace(/\.pdf$/i, "").split(path.sep).join(" / "),
+      fileUrl: `local-file:///${filePath.replace(/\\/g, "/")}`
+    }))
+  };
+});
+
 ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
   const isManga = kind === "manga";
   const result = await dialog.showOpenDialog(mainWindow, {
     title: isManga ? "Import local comics" : "Import local light novels",
-    properties: ["openFile", "multiSelections"],
+    properties: isManga ? ["openDirectory"] : ["openFile", "multiSelections"],
     filters: isManga
       ? [
           { name: "Comic files", extensions: ["cbz", "zip", "pdf", "png", "jpg", "jpeg", "webp"] },
@@ -2165,10 +2193,10 @@ ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
   });
   if (result.canceled) return [];
   return result.filePaths.map((filePath) => ({
-    title: path.basename(filePath, path.extname(filePath)),
+    title: isManga ? path.basename(filePath) : path.basename(filePath, path.extname(filePath)),
     kind: isManga ? "manga" : "novel",
     filePath,
-    format: path.extname(filePath).replace(/^\./, "").toUpperCase() || "FILE"
+    format: isManga ? "PDF 文件夹" : path.extname(filePath).replace(/^\./, "").toUpperCase() || "FILE"
   }));
 });
 
