@@ -2,9 +2,12 @@ import React from "react";
 import {
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   GripHorizontal,
   Heart,
   ListMusic,
+  ListOrdered,
   LogOut,
   Music2,
   Pause,
@@ -13,6 +16,7 @@ import {
   RefreshCw,
   SkipBack,
   SkipForward,
+  Shuffle,
   Volume2,
   VolumeX,
   X
@@ -20,7 +24,8 @@ import {
 import type { MusicPlaylist, MusicProfile, MusicTrack } from "../types";
 
 type Position = { x: number; y: number };
-type DockSide = "left" | "right" | null;
+type DockSide = "left" | "right" | "top" | "bottom" | null;
+type PlayMode = "list" | "shuffle";
 
 const PLAYER_WIDTH = 350;
 const LEFT_EDGE = 64;
@@ -52,9 +57,11 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   const [volume, setVolume] = React.useState(0.72);
   const [muted, setMuted] = React.useState(false);
   const [isVolumeOpen, setIsVolumeOpen] = React.useState(false);
+  const [playMode, setPlayMode] = React.useState<PlayMode>("list");
   const [dockSide, setDockSide] = React.useState<DockSide>(null);
   const [isDockCollapsed, setIsDockCollapsed] = React.useState(false);
   const audioRef = React.useRef<HTMLAudioElement>(null);
+  const playerRef = React.useRef<HTMLElement>(null);
   const dragRef = React.useRef<{ pointerId: number; dx: number; dy: number } | null>(null);
   const dockTimerRef = React.useRef<number | null>(null);
 
@@ -128,11 +135,17 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   React.useEffect(() => {
     const handleResize = () => setPosition((current) => ({
       x: dockSide === "left" ? LEFT_EDGE : dockSide === "right" ? window.innerWidth - PLAYER_WIDTH : Math.max(LEFT_EDGE, Math.min(window.innerWidth - PLAYER_WIDTH, current.x)),
-      y: Math.max(12, Math.min(window.innerHeight - 100, current.y))
+      y: dockSide === "top" ? 0 : dockSide === "bottom" ? Math.max(0, window.innerHeight - (playerRef.current?.offsetHeight || 260)) : Math.max(0, Math.min(window.innerHeight - (playerRef.current?.offsetHeight || 260), current.y))
     }));
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, [dockSide]);
+
+  React.useEffect(() => {
+    if (dockSide !== "bottom") return;
+    const frame = window.requestAnimationFrame(() => setPosition((current) => ({ ...current, y: Math.max(0, window.innerHeight - (playerRef.current?.offsetHeight || 260)) })));
+    return () => window.cancelAnimationFrame(frame);
+  }, [dockSide, isPlaylistOpen, isVolumeOpen, loading, profile, error]);
 
   async function createQr() {
     setLoading(true);
@@ -175,6 +188,12 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
 
   function adjacent(delta: number) {
     if (!playlist?.tracks.length) return;
+    if (playMode === "shuffle" && playlist.tracks.length > 1) {
+      let nextIndex = currentIndex;
+      while (nextIndex === currentIndex) nextIndex = Math.floor(Math.random() * playlist.tracks.length);
+      void playAt(nextIndex);
+      return;
+    }
     void playAt((Math.max(0, currentIndex) + delta + playlist.tracks.length) % playlist.tracks.length);
   }
 
@@ -201,23 +220,34 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
   function moveDrag(event: React.PointerEvent<HTMLElement>) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
+    const playerHeight = playerRef.current?.offsetHeight || 260;
     setPosition({
       x: Math.max(LEFT_EDGE, Math.min(window.innerWidth - PLAYER_WIDTH, event.clientX - drag.dx)),
-      y: Math.max(12, Math.min(window.innerHeight - 100, event.clientY - drag.dy))
+      y: Math.max(0, Math.min(window.innerHeight - playerHeight, event.clientY - drag.dy))
     });
   }
 
   function endDrag(event: React.PointerEvent<HTMLElement>) {
     const drag = dragRef.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
+    const playerHeight = playerRef.current?.offsetHeight || 260;
+    const maxY = Math.max(0, window.innerHeight - playerHeight);
     const finalX = Math.max(LEFT_EDGE, Math.min(window.innerWidth - PLAYER_WIDTH, event.clientX - drag.dx));
+    const finalY = Math.max(0, Math.min(maxY, event.clientY - drag.dy));
     dragRef.current = null;
-    if (finalX <= LEFT_EDGE + 24) {
-      setDockSide("left");
-      setPosition((current) => ({ ...current, x: LEFT_EDGE }));
-    } else if (finalX >= window.innerWidth - PLAYER_WIDTH - 24) {
-      setDockSide("right");
-      setPosition((current) => ({ ...current, x: window.innerWidth - PLAYER_WIDTH }));
+    const distances = [
+      { side: "left" as const, distance: finalX - LEFT_EDGE },
+      { side: "right" as const, distance: window.innerWidth - PLAYER_WIDTH - finalX },
+      { side: "top" as const, distance: finalY },
+      { side: "bottom" as const, distance: maxY - finalY }
+    ].sort((a, b) => a.distance - b.distance);
+    const nearest = distances[0];
+    if (nearest.distance <= 24) {
+      setDockSide(nearest.side);
+      setPosition({
+        x: nearest.side === "left" ? LEFT_EDGE : nearest.side === "right" ? window.innerWidth - PLAYER_WIDTH : finalX,
+        y: nearest.side === "top" ? 0 : nearest.side === "bottom" ? maxY : finalY
+      });
     }
   }
 
@@ -240,6 +270,7 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
 
   return (
     <section
+      ref={playerRef}
       className={`music-player ${dockSide ? `is-docked is-docked-${dockSide}` : ""} ${isDockCollapsed ? "is-dock-collapsed" : ""}`}
       style={{ left: position.x, top: position.y }}
       aria-label="网易云音乐播放器"
@@ -247,8 +278,8 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
       onMouseLeave={scheduleDockCollapse}
     >
       {dockSide && <button type="button" className="music-dock-handle" aria-label="展开音乐播放器" onClick={revealDock}>
-        {dockSide === "left" ? <ChevronRight size={17} /> : <ChevronLeft size={17} />}
-        <Music2 size={15} />
+        {dockSide === "left" ? <ChevronRight size={14} /> : dockSide === "right" ? <ChevronLeft size={14} /> : dockSide === "top" ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+        <Music2 size={13} />
       </button>}
       <header className="music-player-header" onPointerDown={beginDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag}>
         <span className="music-player-title"><Music2 size={17} /> 音乐</span>
@@ -294,6 +325,9 @@ export function MusicPlayer({ onClose }: { onClose: () => void }) {
             <button type="button" onClick={() => adjacent(-1)} aria-label="上一首"><SkipBack size={18} /></button>
             <button type="button" className="music-play-button" onClick={togglePlayback} aria-label={playing ? "暂停" : "播放"}>{playing ? <Pause size={19} /> : <Play size={19} fill="currentColor" />}</button>
             <button type="button" onClick={() => adjacent(1)} aria-label="下一首"><SkipForward size={18} /></button>
+            <button type="button" className={playMode === "shuffle" ? "active" : undefined} title={playMode === "list" ? "当前：列表顺序" : "当前：随机播放"} aria-label={playMode === "list" ? "切换为随机播放" : "切换为列表顺序"} onClick={() => setPlayMode((mode) => mode === "list" ? "shuffle" : "list")}>
+              {playMode === "shuffle" ? <Shuffle size={17} /> : <ListOrdered size={17} />}
+            </button>
             <div className="music-volume-control">
               <button type="button" aria-label="音量控制" aria-expanded={isVolumeOpen} onClick={() => setIsVolumeOpen((open) => !open)}>{muted || volume === 0 ? <VolumeX size={17} /> : <Volume2 size={17} />}</button>
               {isVolumeOpen && <div className="music-volume-popover">

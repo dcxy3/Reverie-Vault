@@ -2495,7 +2495,7 @@ textarea:focus-visible {
 /* Floating music player — shares the launcher's glass language. */
 .music-player {
   position: fixed;
-  z-index: 72;
+  z-index: 90;
   display: flex;
   flex-direction: column;
   width: 350px;
@@ -2515,8 +2515,12 @@ textarea:focus-visible {
 
 .music-player.is-docked-left { border-radius: 0 16px 16px 0; }
 .music-player.is-docked-right { border-radius: 16px 0 0 16px; }
-.music-player.is-docked-left.is-dock-collapsed { transform: translateX(calc(-100% + 42px)); }
-.music-player.is-docked-right.is-dock-collapsed { transform: translateX(calc(100% - 42px)); }
+.music-player.is-docked-top { border-radius: 0 0 16px 16px; }
+.music-player.is-docked-bottom { border-radius: 16px 16px 0 0; }
+.music-player.is-docked-left.is-dock-collapsed { transform: translateX(calc(-100% + 30px)); }
+.music-player.is-docked-right.is-dock-collapsed { transform: translateX(calc(100% - 30px)); }
+.music-player.is-docked-top.is-dock-collapsed { transform: translateY(calc(-100% + 30px)); }
+.music-player.is-docked-bottom.is-dock-collapsed { transform: translateY(calc(100% - 30px)); }
 .music-player.is-dock-collapsed { box-shadow: 0 12px 38px rgba(0, 0, 0, 0.32); }
 
 .music-dock-handle {
@@ -2528,9 +2532,9 @@ textarea:focus-visible {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  width: 42px;
-  height: 54px;
+  gap: 2px;
+  width: 30px;
+  height: 42px;
   border: 0;
   color: #d9f3ff;
   background: rgba(var(--adaptive-chrome-rgb), 0.42);
@@ -2540,8 +2544,18 @@ textarea:focus-visible {
   transition: opacity 160ms ease, background 160ms ease;
 }
 
-.is-docked-left .music-dock-handle { right: 0; border-radius: 0 14px 14px 0; }
-.is-docked-right .music-dock-handle { left: 0; border-radius: 14px 0 0 14px; }
+.is-docked-left .music-dock-handle { right: 0; border-radius: 0 11px 11px 0; }
+.is-docked-right .music-dock-handle { left: 0; border-radius: 11px 0 0 11px; }
+.is-docked-top .music-dock-handle,
+.is-docked-bottom .music-dock-handle {
+  left: 50%;
+  width: 46px;
+  height: 30px;
+  flex-direction: row;
+  transform: translateX(-50%);
+}
+.is-docked-top .music-dock-handle { bottom: 0; border-radius: 0 0 11px 11px; }
+.is-docked-bottom .music-dock-handle { top: 0; border-radius: 11px 11px 0 0; }
 .music-player.is-dock-collapsed .music-dock-handle { visibility: visible; opacity: 1; }
 .music-player.is-dock-collapsed .music-dock-handle:hover { background: rgba(var(--adaptive-action-rgb), 0.48); }
 
@@ -2587,6 +2601,12 @@ textarea:focus-visible {
 .music-controls button:hover {
   border-color: rgba(210, 233, 249, 0.16);
   background: rgba(126, 184, 218, 0.15);
+}
+
+.music-controls > button.active {
+  border-color: rgba(200, 235, 252, 0.24);
+  color: #d7f2ff;
+  background: rgba(var(--adaptive-action-rgb), 0.24);
 }
 
 .music-login {
