@@ -1,9 +1,8 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, protocol, session, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, session, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn, execFile } = require("node:child_process");
-const { pathToFileURL } = require("node:url");
 
   const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
   let mainWindow;
@@ -46,17 +45,6 @@ async function configureProxy(proxyPort) {
     console.warn("[proxy] 代理配置失败，使用直连:", err.message);
   }
 }
-
-protocol.registerSchemesAsPrivileged([
-  {
-    scheme: "local-file",
-    privileges: {
-      standard: true,
-      secure: true,
-      supportFetchAPI: true
-    }
-  }
-]);
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -168,6 +156,8 @@ function configureReadingWatchers(items) {
     const item = wanted.get(itemId);
     if (item && watcher.sourcePath === item.filePath) continue;
     watcher.handle.close();
+    clearTimeout(readingWatchTimers.get(itemId));
+    readingWatchTimers.delete(itemId);
     readingWatchers.delete(itemId);
   }
   for (const [itemId, item] of wanted) {
@@ -175,15 +165,24 @@ function configureReadingWatchers(items) {
     const stat = fs.statSync(item.filePath);
     const watchPath = stat.isDirectory() ? item.filePath : path.dirname(item.filePath);
     try {
-      const handle = fs.watch(watchPath, { recursive: stat.isDirectory() }, (_eventType, fileName) => {
+      const isDirectory = stat.isDirectory();
+      const handle = fs.watch(watchPath, { recursive: isDirectory }, (_eventType, fileName) => {
+        if (!isDirectory && fileName && path.resolve(watchPath, String(fileName)) !== path.resolve(item.filePath)) return;
         const extension = path.extname(String(fileName || "")).toLowerCase();
-        const relevant = item.kind === "manga" ? extension === ".pdf" : [".txt", ".md", ".markdown"].includes(extension);
+        const relevant = !fileName || (item.kind === "manga" ? extension === ".pdf" : [".txt", ".md", ".markdown"].includes(extension));
         if (!relevant) return;
         clearTimeout(readingWatchTimers.get(itemId));
         readingWatchTimers.set(itemId, setTimeout(() => {
           readingWatchTimers.delete(itemId);
           if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send("reader:contentChanged", { itemId });
         }, 500));
+      });
+      handle.on("error", (error) => {
+        console.warn("reading content watcher stopped:", item.filePath, error.message);
+        handle.close();
+        clearTimeout(readingWatchTimers.get(itemId));
+        readingWatchTimers.delete(itemId);
+        readingWatchers.delete(itemId);
       });
       readingWatchers.set(itemId, { sourcePath: item.filePath, handle });
     } catch (error) {
@@ -2645,13 +2644,6 @@ app.whenReady().then(() => {
   // Proxy: only use if PROXY_PORT env var is set
   configureProxy(process.env.PROXY_PORT);
 
-  protocol.handle("local-file", (request) => {
-    const url = new URL(request.url);
-    let filePath = decodeURIComponent(url.pathname);
-    if (/^\/[A-Za-z]:/.test(filePath)) filePath = filePath.slice(1);
-    filePath = filePath.replace(/\//g, path.sep);
-    return net.fetch(pathToFileURL(filePath).toString());
-  });
   createWindow();
 });
 

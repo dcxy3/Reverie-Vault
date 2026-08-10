@@ -71,6 +71,11 @@ export function LocalShelf({ items, onImport, onSaveProgress, onAddReadingTime, 
     }).catch(() => undefined);
     return () => { cancelled = true; };
   }, [items]);
+
+  useEffect(() => {
+    if (!selectedItem) return;
+    setSelectedItem(items.find((item) => item.id === selectedItem.id) ?? null);
+  }, [items, selectedItem?.id]);
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => window.galLauncher.onReadingContentChanged(({ itemId }) => {
