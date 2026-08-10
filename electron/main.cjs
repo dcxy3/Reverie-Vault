@@ -1,11 +1,13 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, safeStorage, session, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, protocol, safeStorage, session, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn, execFile, fork } = require("node:child_process");
+const { pathToFileURL } = require("node:url");
 
 // Keep existing libraries and settings available after the visible product rename.
 app.setPath("userData", path.join(app.getPath("appData"), "gal-launcher"));
+protocol.registerSchemesAsPrivileged([{ scheme: "reverie-media", privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }]);
 
   const isDev = Boolean(process.env.VITE_DEV_SERVER_URL);
   let mainWindow;
@@ -237,6 +239,31 @@ function readingDataPath() {
   const dir = path.join(app.getPath("userData"), "library");
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, "reading-items.json");
+}
+
+function localMusicDataPath() {
+  const dir = path.join(app.getPath("userData"), "library");
+  fs.mkdirSync(dir, { recursive: true });
+  return path.join(dir, "local-music.json");
+}
+
+function readLocalMusicLibrary() {
+  try {
+    const tracks = JSON.parse(fs.readFileSync(localMusicDataPath(), "utf8"));
+    return Array.isArray(tracks) ? tracks.filter((track) => track?.id && track?.filePath) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeLocalMusicLibrary(tracks) {
+  const safeTracks = Array.isArray(tracks) ? tracks : [];
+  fs.writeFileSync(localMusicDataPath(), JSON.stringify(safeTracks, null, 2), "utf8");
+  return safeTracks;
+}
+
+function publicLocalMusicTracks(tracks = readLocalMusicLibrary()) {
+  return tracks.map((track) => ({ id: String(track.id), title: String(track.title || "未知歌曲"), format: String(track.format || "AUDIO") }));
 }
 
 function journalFile() {
@@ -2338,6 +2365,51 @@ ipcMain.handle("window:readCialloAudio", () => {
   return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
 });
 
+ipcMain.handle("music:loadLocalLibrary", () => publicLocalMusicTracks());
+
+ipcMain.handle("music:pickLocalTracks", async () => {
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: "导入本地音乐",
+    properties: ["openFile", "multiSelections"],
+    filters: [
+      { name: "音频文件", extensions: ["mp3", "flac", "wav", "m4a", "aac", "ogg", "opus", "wma"] },
+      { name: "所有文件", extensions: ["*"] }
+    ]
+  });
+  if (result.canceled) return publicLocalMusicTracks();
+  const existing = readLocalMusicLibrary();
+  const byPath = new Map(existing.map((track) => [path.resolve(track.filePath).toLocaleLowerCase("zh-CN"), track]));
+  for (const filePath of result.filePaths) {
+    if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) continue;
+    const resolvedPath = path.resolve(filePath);
+    const pathKey = resolvedPath.toLocaleLowerCase("zh-CN");
+    if (byPath.has(pathKey)) continue;
+    const extension = path.extname(resolvedPath);
+    byPath.set(pathKey, {
+      id: crypto.createHash("sha256").update(resolvedPath).digest("hex").slice(0, 24),
+      title: path.basename(resolvedPath, extension),
+      format: extension.replace(/^\./, "").toUpperCase() || "AUDIO",
+      filePath: resolvedPath,
+      importedAt: new Date().toISOString()
+    });
+  }
+  const tracks = Array.from(byPath.values());
+  writeLocalMusicLibrary(tracks);
+  return publicLocalMusicTracks(tracks);
+});
+
+ipcMain.handle("music:removeLocalTrack", (_event, id) => {
+  const tracks = readLocalMusicLibrary().filter((track) => track.id !== String(id));
+  writeLocalMusicLibrary(tracks);
+  return publicLocalMusicTracks(tracks);
+});
+
+ipcMain.handle("music:getLocalTrackUrl", (_event, id) => {
+  const track = readLocalMusicLibrary().find((item) => item.id === String(id));
+  if (!track || !fs.existsSync(track.filePath)) throw new Error("本地音乐文件已被移动或删除");
+  return `reverie-media://track/${encodeURIComponent(track.id)}`;
+});
+
 ipcMain.handle("music:getSession", () => getMusicSession());
 
 ipcMain.handle("music:createQr", async () => {
@@ -2933,6 +3005,19 @@ ipcMain.handle("game:launch", async (_event, game) => {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+
+  protocol.handle("reverie-media", (request) => {
+    try {
+      const mediaUrl = new URL(request.url);
+      if (mediaUrl.hostname !== "track") return new Response("Not found", { status: 404 });
+      const id = decodeURIComponent(mediaUrl.pathname.replace(/^\//, ""));
+      const track = readLocalMusicLibrary().find((item) => item.id === id);
+      if (!track || !fs.existsSync(track.filePath)) return new Response("Local audio file not found", { status: 404 });
+      return net.fetch(pathToFileURL(track.filePath).toString(), { headers: request.headers });
+    } catch (error) {
+      return new Response(error instanceof Error ? error.message : "Unable to read local audio", { status: 500 });
+    }
+  });
 
   // Proxy: only use if PROXY_PORT env var is set
   configureProxy(process.env.PROXY_PORT);

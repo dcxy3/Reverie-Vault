@@ -156,6 +156,10 @@ export interface LauncherApi {
   getLikedMusicPlaylist: () => Promise<MusicPlaylist>;
   getMusicSongUrl: (id: string) => Promise<{ url: string; type: string; level: string }>;
   logoutMusic: () => Promise<void>;
+  loadLocalMusicLibrary: () => Promise<LocalMusicTrack[]>;
+  pickLocalMusicTracks: () => Promise<LocalMusicTrack[]>;
+  removeLocalMusicTrack: (id: string) => Promise<LocalMusicTrack[]>;
+  getLocalMusicTrackUrl: (id: string) => Promise<string>;
   onFullscreenChanged: (callback: (payload: { fullscreen: boolean }) => void) => () => void;
   findReadingCoverCandidates: (item: ReadingItem) => Promise<ReadingCoverCandidate[]>;
   exportLibrary: (games: Game[], readingItems: ReadingItem[]) => Promise<string>;
@@ -188,6 +192,12 @@ export interface MusicTrack {
   album: string;
   coverUrl: string;
   durationMs: number;
+}
+
+export interface LocalMusicTrack {
+  id: string;
+  title: string;
+  format: string;
 }
 
 export interface MusicPlaylist {

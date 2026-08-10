@@ -26,6 +26,10 @@ contextBridge.exposeInMainWorld("galLauncher", {
   getLikedMusicPlaylist: () => ipcRenderer.invoke("music:getLikedPlaylist"),
   getMusicSongUrl: (id) => ipcRenderer.invoke("music:getSongUrl", id),
   logoutMusic: () => ipcRenderer.invoke("music:logout"),
+  loadLocalMusicLibrary: () => ipcRenderer.invoke("music:loadLocalLibrary"),
+  pickLocalMusicTracks: () => ipcRenderer.invoke("music:pickLocalTracks"),
+  removeLocalMusicTrack: (id) => ipcRenderer.invoke("music:removeLocalTrack", id),
+  getLocalMusicTrackUrl: (id) => ipcRenderer.invoke("music:getLocalTrackUrl", id),
   onFullscreenChanged: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on("window:fullscreenChanged", listener);
