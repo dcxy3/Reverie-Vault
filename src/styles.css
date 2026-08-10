@@ -319,6 +319,7 @@ button {
 }
 
 .rail-button.pin,
+.rail-button.fullscreen,
 .rail-button.add {
   color: var(--text-primary);
   background: rgba(var(--adaptive-chrome-rgb), 0.6);
@@ -336,13 +337,15 @@ button {
 }
 
 .rail-button.pin:hover,
+.rail-button.fullscreen:hover,
 .rail-button.add:hover {
   background: rgba(var(--adaptive-action-rgb), 0.28);
   border-color: rgba(var(--adaptive-action-rgb), 0.72);
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.24), 0 0 20px rgba(var(--adaptive-action-rgb), 0.24);
 }
 
-.rail-button.pin.active {
+.rail-button.pin.active,
+.rail-button.fullscreen.active {
   color: var(--accent-color);
   background: rgba(var(--adaptive-action-rgb), 0.38);
   border-color: rgba(var(--adaptive-action-rgb), 0.78);

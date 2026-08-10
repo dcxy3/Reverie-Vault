@@ -66,10 +66,16 @@ function createWindow() {
   // Register F12 to toggle DevTools (Ctrl+Shift+I doesn't work with autoHideMenuBar)
   mainWindow.webContents.on("before-input-event", (_event, input) => {
     if (input.key === "Alt") mainWindow.webContents.send("reader:altKeyChanged", { pressed: input.type === "keyDown" });
+    if (input.key === "F11" && input.type === "keyDown") mainWindow.setFullScreen(!mainWindow.isFullScreen());
+    if (input.key === "Escape" && input.type === "keyDown" && mainWindow.isFullScreen()) mainWindow.setFullScreen(false);
     if (input.key === "F12" && input.type === "keyDown") {
       mainWindow.webContents.toggleDevTools();
     }
   });
+
+  const notifyFullscreenChanged = () => mainWindow.webContents.send("window:fullscreenChanged", { fullscreen: mainWindow.isFullScreen() });
+  mainWindow.on("enter-full-screen", notifyFullscreenChanged);
+  mainWindow.on("leave-full-screen", notifyFullscreenChanged);
 
   if (isDev) {
     mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL);
@@ -2135,6 +2141,12 @@ async function findCoverCandidates(game) {
 }
 
 ipcMain.handle("library:load", async () => normalizeLibraryForRuntime(readLibrary()));
+
+ipcMain.handle("window:toggleFullscreen", () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return false;
+  mainWindow.setFullScreen(!mainWindow.isFullScreen());
+  return mainWindow.isFullScreen();
+});
 
 ipcMain.handle("library:save", (_event, games) => writeLibrary(games));
 

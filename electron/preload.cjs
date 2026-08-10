@@ -17,6 +17,12 @@ contextBridge.exposeInMainWorld("galLauncher", {
     ipcRenderer.on("reader:altKeyChanged", listener);
     return () => ipcRenderer.removeListener("reader:altKeyChanged", listener);
   },
+  toggleFullscreen: () => ipcRenderer.invoke("window:toggleFullscreen"),
+  onFullscreenChanged: (callback) => {
+    const listener = (_event, payload) => callback(payload);
+    ipcRenderer.on("window:fullscreenChanged", listener);
+    return () => ipcRenderer.removeListener("window:fullscreenChanged", listener);
+  },
   findReadingCoverCandidates: (item) => ipcRenderer.invoke("reader:findCoverCandidates", item),
   loadLibrary: () => ipcRenderer.invoke("library:load"),
   saveLibrary: (games) => ipcRenderer.invoke("library:save", games),

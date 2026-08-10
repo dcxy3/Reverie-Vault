@@ -5,6 +5,8 @@ import {
   Gamepad2,
   Home,
   Library,
+  Maximize,
+  Minimize,
   Pin,
   Play,
   Plus,
@@ -18,6 +20,8 @@ import { LocalShelf } from "../components/LocalShelf";
 
 export function CinemaLayout({ lib }: { lib: LibraryController }) {
   const [isChromePinned, setIsChromePinned] = React.useState(false);
+  const [isFullscreen, setIsFullscreen] = React.useState(false);
+  React.useEffect(() => window.galLauncher.onFullscreenChanged(({ fullscreen }) => setIsFullscreen(fullscreen)), []);
   const {
     query, setQuery,
     statusFilter, setStatusFilter,
@@ -90,6 +94,9 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
           onClick={() => setIsChromePinned((pinned) => !pinned)}
         >
           <Pin size={19} />
+        </button>
+        <button className={`rail-button fullscreen ${isFullscreen ? "active" : ""}`} aria-label={isFullscreen ? "退出全屏" : "进入全屏"} title={isFullscreen ? "退出全屏 (F11 / Esc)" : "进入全屏 (F11)"} aria-pressed={isFullscreen} onClick={async () => setIsFullscreen(await window.galLauncher.toggleFullscreen())}>
+          {isFullscreen ? <Minimize size={19} /> : <Maximize size={19} />}
         </button>
         <button className="rail-button add" aria-label="添加游戏" onClick={addGame}>
           <Plus size={20} />
