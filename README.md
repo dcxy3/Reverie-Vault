@@ -1,243 +1,72 @@
-<p align="center">
-  <img src="docs/assets/screenshots/hero.png" alt="Reverie Vault" width="960">
-</p>
+# Reverie Vault
 
-<h1 align="center">Reverie Vault</h1>
+Reverie Vault（绮梦藏馆）是一款面向 Windows 的本地 Galgame、视觉小说、轻小说、漫画与音乐收藏管理器。它以沉浸式卡片界面统一管理本地内容，并提供阅读进度、游玩时长、在线资料匹配、离线模式和备份恢复等功能。
 
-<p align="center">
-  <strong>让本地 Galgame / 视觉小说收藏也拥有漂亮、可追踪、可切换主题的启动体验。</strong>
-  <br>
-  <sub>A local visual novel launcher for browsing, launching, tracking, and presenting your library.</sub>
-</p>
+> 本项目只管理用户已经合法拥有的本地文件，不附带游戏、漫画、小说或音乐资源。
 
-<p align="center">
-  <a href="https://github.com/KamiNeko-pre/gal-launcher/releases"><strong>下载 Download</strong></a>
-  ·
-  <a href="docs/USER_GUIDE.md">使用教程</a>
-  ·
-  <a href="ROADMAP.md">路线图</a>
-  ·
-  <a href="docs/DATA_SOURCES.md">数据来源</a>
-</p>
+## 下载与版本选择
 
-<p align="center">
-  <img alt="Windows" src="https://img.shields.io/badge/platform-Windows-8aa6bd">
-  <img alt="Electron" src="https://img.shields.io/badge/Electron-38-9fb7ca">
-  <img alt="React" src="https://img.shields.io/badge/React-19-9fb7ca">
-  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-9fb7ca">
-  <img alt="License" src="https://img.shields.io/badge/license-MIT-d8e0e8">
-</p>
+| 文件 | 适合场景 | 使用方式 |
+| --- | --- | --- |
+| `Reverie Vault Setup 0.3.0.exe` | 推荐普通用户使用 | 运行安装程序，可选择安装目录并创建快捷方式 |
+| `Reverie Vault Portable 0.3.0.exe` | 临时使用或随身携带 | 单文件启动，每次运行会解压到 Windows 临时目录 |
+| `Reverie Vault Green 0.3.0 x64.zip` | 推荐长期免安装使用 | 完整解压后运行 `win-unpacked/Reverie Vault.exe` |
 
-> **免责声明 / Disclaimer**：Reverie Vault 不提供游戏本体、下载资源、破解、补丁或 DRM 绕过工具。它只管理你已经安装在本地的游戏。
+绿色 ZIP 必须完整解压后使用。Windows 在压缩包预览界面中不会读取内部 EXE 的嵌入图标，因此预览时可能显示通用程序图标；这不代表 EXE 没有图标。请解压到一个新文件夹后查看和运行。
 
----
+## 主要功能
 
-## 这到底是什么？
+- 本地游戏库：导入游戏启动文件，记录启动次数、游玩时长、状态、会社、标签和简介。
+- 收藏展示柜：统一尺寸的封面卡片、3D 倾斜和选中放大效果。
+- 本地书架：同时支持单个 TXT 小说、小说文件夹和包含多个 PDF 的漫画文件夹。
+- 沉浸阅读：章节识别、分页、章节目录、自动阅读记录以及漫画缩放。
+- 内容监测：小说或漫画文件夹新增章节后自动刷新，无需重新导入。
+- 封面管理：在线多来源候选搜索，也可上传本地图片作为封面。
+- 全局搜索：模糊搜索游戏、轻小说和漫画，并自动跳转到对应项目。
+- 音乐播放器：支持网易云二维码登录、喜欢歌单和本地音乐播放。
+- 离线模式：网络不可用时停止联网功能，远程封面显示“封面丢失了喵”，本地内容继续正常使用。
+- 备份恢复：以较小的元数据备份文件保存游戏、小说、漫画与阅读记录，不复制大型本地内容。
+- 其他功能：全屏、边缘停靠音乐面板、多种沉浸式交互。
 
-硬盘里一堆 `game.exe`、`SiglusEngine.exe`、`start.exe`、`launcher.exe`，时间一久就很难分清哪个文件夹是哪部作品，想重温也找不到入口。
+## 系统要求
 
-Reverie Vault 把这些本地游戏整理成一个视觉小说专用启动器：
-
-- 给每个游戏匹配封面、横版背景、会社、发售日、标签和简介
-- 从 VNDB / Bangumi / Steam 等多个来源辅助搜索资料和图片候选
-- 用多套主题展示作品库，而不是只显示文件路径
-- 一键启动游戏，并自动记录启动次数和游玩时长
-- 数据保存在本地，支持导出备份和恢复
-
-本质上，它是一个“本地 Galgame / 视觉小说书架”。
-
----
-
-## 功能亮点
-
-<table>
-<tr>
-  <td width="50%">
-    <h4>本地游戏库</h4>
-    <p>添加 <code>.exe</code>、<code>.bat</code>、<code>.cmd</code>、<code>.lnk</code> 启动文件，自动设置工作目录并启动游戏。</p>
-  </td>
-  <td width="50%">
-    <h4>资料补全</h4>
-    <p>搜索标题、原名、会社、简介、发售日、标签、评分和图片候选，自动识别不准时也可以手动修正。</p>
-  </td>
-</tr>
-<tr>
-  <td>
-    <h4>封面与横版背景</h4>
-    <p>竖版封面用于书架和收藏页，横版图用于启动页。可以从候选里选，也可以使用本地图片。</p>
-  </td>
-  <td>
-    <h4>游玩追踪</h4>
-    <p>记录启动次数、总时长、最近游玩时间、当前进行状态和会话历史。</p>
-  </td>
-</tr>
-<tr>
-  <td>
-    <h4>多主题界面</h4>
-    <p>六套主题拥有不同布局、导航和收藏页，不只是换颜色。</p>
-  </td>
-  <td>
-    <h4>本地优先</h4>
-    <p>游戏库数据保存在本机。支持备份导出和恢复，不依赖云同步。</p>
-  </td>
-</tr>
-</table>
-
----
-
-## 主题系统
-
-0.3.0 之后，主题不再只是配色预设，而是完整的前端布局。每套主题都有自己的信息架构、作品导航和收藏页表达。
-
-| 主题 | 风格 |
-| --- | --- |
-| **Cinema** | 沉浸式横版大图，保留最初的电影感启动语言 |
-| **Editorial** | 杂志跨页、刊头工具栏、目录式分页 |
-| **Arcade** | CRT 游戏机、卡带槽、像素 HUD、街机启动按钮 |
-| **Atelier** | 手账桌面、相册、便签和纸张拼贴 |
-| **Lumen Shelf** | 明亮书架、目录索引、多列作品墙 |
-| **Aurora** | 柔光剧照舞台、续读列表和玻璃信息卡 |
-
-<table>
-<tr>
-  <td width="50%"><img src="docs/assets/screenshots/theme-cinema.jpg" alt="Cinema theme"><br><strong>Cinema</strong></td>
-  <td width="50%"><img src="docs/assets/screenshots/theme-editorial.jpg" alt="Editorial theme"><br><strong>Editorial</strong></td>
-</tr>
-<tr>
-  <td width="50%"><img src="docs/assets/screenshots/theme-arcade.jpg" alt="Arcade theme"><br><strong>Arcade</strong></td>
-  <td width="50%"><img src="docs/assets/screenshots/theme-atelier.jpg" alt="Atelier theme"><br><strong>Atelier</strong></td>
-</tr>
-<tr>
-  <td width="50%"><img src="docs/assets/screenshots/theme-lumen-shelf.jpg" alt="Lumen Shelf theme"><br><strong>Lumen Shelf</strong></td>
-  <td width="50%"><img src="docs/assets/screenshots/theme-aurora.jpg" alt="Aurora theme"><br><strong>Aurora</strong></td>
-</tr>
-</table>
-
----
+- Windows 10 或 Windows 11，64 位系统。
+- 无需另外安装 Node.js、Electron 或浏览器运行库。
+- 在线封面搜索和网易云音乐需要互联网连接；游戏、书架、漫画、小说和本地音乐支持离线使用。
 
 ## 快速开始
 
-```text
-1. 下载 Reverie-Vault-vX.X.X.zip
-2. 解压后打开 Reverie Vault.exe
-3. 点击添加按钮，选择游戏启动文件
-4. 等待自动资料搜索，或手动选择候选资料
-5. 点击封面进入启动页，一键启动游戏
-```
+1. 选择安装包进行安装，或完整解压绿色 ZIP。
+2. 启动 Reverie Vault。
+3. 使用左侧 `+` 按钮添加本地游戏。
+4. 进入“本地书架”，导入轻小说文件、小说文件夹或漫画文件夹。
+5. 打开音乐面板后，可扫码登录网易云，也可切换到“本地音乐”直接导入音频文件。
 
-支持 `exe / bat / cmd / lnk` 四种启动方式。执行目录会自动设为游戏所在文件夹。
+## 本地文件与数据
 
-完整教程见 [使用指南](docs/USER_GUIDE.md)。
+- 游戏、小说、漫画和音乐默认直接读取用户选择的原文件，不会把大型内容复制到系统盘。
+- 删除库内条目只会删除 Reverie Vault 中的记录，不会删除原始文件。
+- 备份文件只保存元数据与本地路径。换电脑恢复后，需要让原始内容仍位于对应路径，或重新指定文件位置。
+- 新用户数据保存在 `%APPDATA%\Reverie Vault`。旧版本用户会继续兼容 `%APPDATA%\gal-launcher` 中的现有数据库。
 
----
+## 常见问题
 
-## 截图画廊
+### 为什么在 ZIP 里面看不到 EXE 图标？
 
-<p align="center">
-  <img src="docs/assets/screenshots/launch-page.png" alt="启动页" width="720">
-  <br>
-  <em>横版主视觉启动页</em>
-</p>
+这是 Windows 压缩文件夹的显示限制。它通常不会读取压缩包内部 EXE 的图标资源。完整解压后，`Reverie Vault.exe` 会显示栞图标。
 
-<p align="center">
-  <img src="docs/assets/screenshots/side-sheet.png" alt="资料面板" width="720">
-  <br>
-  <em>游戏详情面板：资料、时长统计和游玩记录</em>
-</p>
+### 为什么 Windows 提示“未知发布者”？
 
-<p align="center">
-  <img src="docs/assets/screenshots/cover-search.png" alt="封面搜索" width="720">
-  <br>
-  <em>封面和背景候选搜索</em>
-</p>
+当前发布包没有商业代码签名证书。可以点击“更多信息”核对文件名后运行。你也可以使用同目录的 `SHA256SUMS.txt` 校验文件完整性。
 
----
+### 换电脑后能直接看到原来的游戏和书籍吗？
 
-## 下载与运行
+可以通过备份恢复库内元数据和阅读记录，但备份不会复制游戏、小说、漫画或音乐本体。请同时迁移原始文件，并尽量保持相同路径。
 
-前往 [Releases](https://github.com/KamiNeko-pre/gal-launcher/releases) 下载最新版本。
+## 开源协议
 
-推荐下载 zip 包，解压后运行：
+本项目使用 [MIT License](https://opensource.org/licenses/MIT)。允许自由使用、修改、分发和商业使用，但分发时需要保留原始版权声明与许可文本。
 
-```text
-win-unpacked/Reverie Vault.exe
-```
+## 技术栈
 
-如果 Windows 提示“未知发布者”，这是因为当前版本没有代码签名证书。确认文件来自本仓库 Release 后继续运行即可。
-
----
-
-## 数据来源
-
-| 来源 | 用途 | 类型 |
-| --- | --- | --- |
-| VNDB | 游戏资料、会社、发行日、封面和截图候选 | API |
-| Bangumi | 条目搜索、评分、封面候选 | API / 网页 |
-| Steam | 商店图片候选 | API |
-| DLsite | 图片候选 | 网页 |
-| 2DFan | 图片候选 | 网页 |
-| 其他社区页面 | 可选补充候选 | 网页 |
-| 本地文件 | 用户手动选择的封面和背景 | 本机 |
-
-详见 [数据来源说明](docs/DATA_SOURCES.md) 和 [隐私说明](docs/PRIVACY.md)。
-
----
-
-## 对比
-
-| | Reverie Vault | Playnite | Steam | 手动管理 |
-| --- | :---: | :---: | :---: | :---: |
-| Galgame / 视觉小说资料搜索 | 是 | 插件依赖 | 否 | 否 |
-| Bangumi 评分 | 是 | 否 | 否 | 否 |
-| 多来源图片候选 | 是 | 插件依赖 | 否 | 否 |
-| 专门为视觉小说设计的主题 | 是 | 否 | 否 | 否 |
-| 本地离线可用 | 是 | 是 | 部分 | 是 |
-| 开源免费 | 是 | 是 | 否 | 是 |
-
----
-
-## 开发
-
-```powershell
-npm install
-npm run dev
-npm run build
-```
-
-快速打包审核版本：
-
-```powershell
-Stop-Process -Name "Reverie Vault" -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
-npm run dist
-```
-
-产物路径：
-
-```text
-release/win-unpacked/Reverie Vault.exe
-```
-
-常规审核不需要跑 `npm run dist:portable`。portable 单文件会把 Electron 运行时压成一个 exe，耗时明显更久。
-
-技术栈：Electron 38、React 19、TypeScript 5.9、Vite 7、lucide-react、纯 CSS 主题层。
-
----
-
-## 路线图
-
-见 [ROADMAP.md](ROADMAP.md)。近期方向包括主题稳定性、收藏页体验、性能优化和资料源可维护性。
-
----
-
-## 参与贡献
-
-欢迎提 Issue 和 PR。请不要上传游戏文件、下载封面、个人库数据或本地缓存。
-
-详见 [CONTRIBUTING.md](CONTRIBUTING.md) 和 [行为准则](CODE_OF_CONDUCT.md)。
-
----
-
-## License
-
-MIT © 2026 Reverie Vault
+Electron 38、React 19、TypeScript 5.9、Vite 7。
