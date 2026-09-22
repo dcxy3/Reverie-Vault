@@ -77,6 +77,7 @@ export interface ReadingItem {
   format: string;
   importedAt: string;
   lastReadPage?: number;
+  lastReadMangaPage?: number;
   lastReadChapter?: string;
   lastReadAt?: string;
   totalReadingSeconds?: number;
@@ -95,7 +96,9 @@ export interface ReadingTextDocument {
 
 export interface ReadingMangaChapter {
   title: string;
-  filePath: string;
+  kind: "pdf" | "images";
+  resourceUrl?: string;
+  pages?: Array<{ title: string; url: string }>;
 }
 
 export interface ReadingMangaDocument {
@@ -144,9 +147,7 @@ export interface LauncherApi {
   pickReadingItems: (kind: ReadingItemKind) => Promise<PickedReadingItem[]>;
   readNovel: (item: ReadingItem) => Promise<ReadingTextDocument>;
   readManga: (item: ReadingItem) => Promise<ReadingMangaDocument>;
-  readMangaChapter: (item: ReadingItem, filePath: string) => Promise<string>;
   onReadingContentChanged: (callback: (payload: { itemId: string }) => void) => () => void;
-  onAltKeyChanged: (callback: (payload: { pressed: boolean }) => void) => () => void;
   toggleFullscreen: () => Promise<boolean>;
   openCiallo: () => Promise<void>;
   readCialloAudio: () => Promise<ArrayBuffer>;

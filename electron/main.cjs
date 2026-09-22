@@ -2,12 +2,14 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, protocol, s
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { Readable } = require("node:stream");
 const { spawn, execFile, fork } = require("node:child_process");
+const yauzl = require("yauzl");
 const { decodeTextBuffer } = require("./text-decoder.cjs");
-const { createPdfResponse } = require("./pdf-stream.cjs");
+const { createFileResponse, createPdfResponse } = require("./pdf-stream.cjs");
 
 protocol.registerSchemesAsPrivileged([{
-  scheme: "reverie-pdf",
+  scheme: "reverie-reader",
   privileges: { standard: true, secure: true, corsEnabled: true, supportFetchAPI: true, stream: true }
 }]);
 
@@ -21,7 +23,8 @@ app.setPath("userData", fs.existsSync(legacyUserDataPath) ? legacyUserDataPath :
   const activePlaySessions = new Map();
   const readingWatchers = new Map();
   const readingWatchTimers = new Map();
-  const mangaPdfTokens = new Map();
+  const mangaResourceTokens = new Map();
+  const mangaArchiveCache = new Map();
   let musicWorker = null;
   let musicRequestId = 0;
   const pendingMusicRequests = new Map();
@@ -202,24 +205,71 @@ async function configureProxy(proxyPort) {
   }
 }
 
-function issueMangaPdfUrl(filePath) {
-  for (const [token, existingPath] of mangaPdfTokens) {
-    if (existingPath === filePath) return `reverie-pdf://reader/${token}`;
+function issueMangaResourceUrl(resource) {
+  const resourceKey = resource.kind === "archive"
+    ? `${resource.archivePath}\0${resource.entryName}`
+    : resource.filePath;
+  for (const [token, existing] of mangaResourceTokens) {
+    if (existing.key === resourceKey) return `reverie-reader://media/${token}`;
   }
   const token = crypto.randomUUID();
-  mangaPdfTokens.set(token, filePath);
-  while (mangaPdfTokens.size > 48) mangaPdfTokens.delete(mangaPdfTokens.keys().next().value);
-  return `reverie-pdf://reader/${token}`;
+  mangaResourceTokens.set(token, { ...resource, key: resourceKey });
+  while (mangaResourceTokens.size > 2000) mangaResourceTokens.delete(mangaResourceTokens.keys().next().value);
+  return `reverie-reader://media/${token}`;
 }
 
-function registerMangaPdfProtocol() {
-  protocol.handle("reverie-pdf", (request) => {
-    const token = new URL(request.url).pathname.replace(/^\//, "");
-    const filePath = mangaPdfTokens.get(token);
-    if (!filePath || !fs.existsSync(filePath) || path.extname(filePath).toLowerCase() !== ".pdf") {
-      return new Response("PDF not found", { status: 404 });
+function mangaImageMime(fileName) {
+  const extension = path.extname(fileName).toLowerCase();
+  return ({ ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp", ".gif": "image/gif", ".bmp": "image/bmp", ".avif": "image/avif" })[extension] || "application/octet-stream";
+}
+
+async function mangaArchiveIndex(archivePath) {
+  const stat = fs.statSync(archivePath);
+  const cached = mangaArchiveCache.get(archivePath);
+  if (cached && cached.size === stat.size && cached.mtimeMs === stat.mtimeMs) return cached.promise;
+  if (cached) cached.promise.then(({ zipFile }) => zipFile.close()).catch(() => undefined);
+  const promise = (async () => {
+    const zipFile = await yauzl.openPromise(archivePath, { autoClose: false, decodeStrings: true, validateEntrySizes: true });
+    const entries = new Map();
+    for await (const entry of zipFile.eachEntry()) {
+      if (!/\/$/.test(entry.fileName) && /\.(?:jpe?g|png|webp|gif|bmp|avif)$/i.test(entry.fileName)) entries.set(entry.fileName, entry);
     }
-    return createPdfResponse(filePath, request);
+    return { zipFile, entries };
+  })();
+  mangaArchiveCache.set(archivePath, { size: stat.size, mtimeMs: stat.mtimeMs, promise });
+  promise.catch(() => mangaArchiveCache.delete(archivePath));
+  return promise;
+}
+
+async function createArchiveImageResponse(resource) {
+  const { zipFile, entries } = await mangaArchiveIndex(resource.archivePath);
+  const entry = entries.get(resource.entryName);
+  if (!entry) return new Response("Archive image not found", { status: 404 });
+  const stream = await zipFile.openReadStreamPromise(entry);
+  return new Response(Readable.toWeb(stream), {
+    headers: {
+      "Access-Control-Allow-Origin": "*",
+      "Cache-Control": "no-store",
+      "Content-Length": String(entry.uncompressedSize),
+      "Content-Type": resource.mime
+    }
+  });
+}
+
+function registerMangaResourceProtocol() {
+  protocol.handle("reverie-reader", async (request) => {
+    const token = new URL(request.url).pathname.replace(/^\//, "");
+    const resource = mangaResourceTokens.get(token);
+    if (!resource) return new Response("Reader resource not found", { status: 404 });
+    try {
+      if (resource.kind === "archive") return await createArchiveImageResponse(resource);
+      if (!fs.existsSync(resource.filePath)) return new Response("Reader resource not found", { status: 404 });
+      if (resource.mime === "application/pdf") return createPdfResponse(resource.filePath, request);
+      return createFileResponse(resource.filePath, resource.mime, request);
+    } catch (error) {
+      console.warn("reader resource failed:", error.message);
+      return new Response("Reader resource failed", { status: 500 });
+    }
   });
 }
 
@@ -243,7 +293,6 @@ function createWindow() {
 
   // Register F12 to toggle DevTools (Ctrl+Shift+I doesn't work with autoHideMenuBar)
   mainWindow.webContents.on("before-input-event", (_event, input) => {
-    if (input.key === "Alt") mainWindow.webContents.send("reader:altKeyChanged", { pressed: input.type === "keyDown" });
     if (input.key === "F11" && input.type === "keyDown") mainWindow.setFullScreen(!mainWindow.isFullScreen());
     if (input.key === "Escape" && input.type === "keyDown" && mainWindow.isFullScreen()) mainWindow.setFullScreen(false);
     if (input.key === "F12" && input.type === "keyDown") {
@@ -379,8 +428,14 @@ function configureReadingWatchers(items) {
       const handle = fs.watch(watchPath, { recursive: isDirectory }, (_eventType, fileName) => {
         if (!isDirectory && fileName && path.resolve(watchPath, String(fileName)) !== path.resolve(item.filePath)) return;
         const extension = path.extname(String(fileName || "")).toLowerCase();
-        const relevant = !fileName || (item.kind === "manga" ? extension === ".pdf" : [".txt", ".md", ".markdown"].includes(extension));
+        const relevant = !fileName || (item.kind === "manga" ? [".pdf", ".cbz", ".zip", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"].includes(extension) : [".txt", ".md", ".markdown"].includes(extension));
         if (!relevant) return;
+        if (item.kind === "manga") {
+          const changedPath = isDirectory && fileName ? path.resolve(watchPath, String(fileName)) : item.filePath;
+          const archive = mangaArchiveCache.get(changedPath);
+          if (archive) archive.promise.then(({ zipFile }) => zipFile.close()).catch(() => undefined);
+          mangaArchiveCache.delete(changedPath);
+        }
         clearTimeout(readingWatchTimers.get(itemId));
         readingWatchTimers.set(itemId, setTimeout(() => {
           readingWatchTimers.delete(itemId);
@@ -416,6 +471,7 @@ function backupReadingItems(items) {
     format: String(item.format || ""),
     importedAt: String(item.importedAt || ""),
     ...(Number.isInteger(item.lastReadPage) ? { lastReadPage: item.lastReadPage } : {}),
+    ...(Number.isInteger(item.lastReadMangaPage) ? { lastReadMangaPage: item.lastReadMangaPage } : {}),
     ...(item.lastReadChapter ? { lastReadChapter: String(item.lastReadChapter) } : {}),
     ...(item.lastReadAt ? { lastReadAt: String(item.lastReadAt) } : {}),
     ...(Number.isFinite(item.totalReadingSeconds) ? { totalReadingSeconds: Math.max(0, item.totalReadingSeconds) } : {}),
@@ -2641,47 +2697,82 @@ ipcMain.handle("reader:readNovel", (_event, item) => {
   };
 });
 
-function findPdfChapters(rootPath) {
-  const chapters = [];
+const mangaImagePattern = /\.(?:jpe?g|png|webp|gif|bmp|avif)$/i;
+const mangaArchivePattern = /\.(?:cbz|zip)$/i;
+const mangaFilePattern = /\.(?:pdf|cbz|zip|jpe?g|png|webp|gif|bmp|avif)$/i;
+
+function findMangaFiles(rootPath) {
+  const files = [];
   const visit = (directory) => {
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
       const entryPath = path.join(directory, entry.name);
       if (entry.isDirectory()) visit(entryPath);
-      else if (entry.isFile() && path.extname(entry.name).toLowerCase() === ".pdf") chapters.push(entryPath);
+      else if (entry.isFile() && mangaFilePattern.test(entry.name)) files.push(entryPath);
     }
   };
   visit(rootPath);
-  return chapters.sort((left, right) => left.localeCompare(right, "zh-CN", { numeric: true, sensitivity: "base" }));
+  return files.sort((left, right) => left.localeCompare(right, "zh-CN", { numeric: true, sensitivity: "base" }));
 }
 
-ipcMain.handle("reader:readManga", (_event, item) => {
+function mangaRelativeTitle(rootPath, filePath) {
+  const relative = path.relative(rootPath, filePath).split(path.sep).join(" / ");
+  return relative.replace(/\.(?:pdf|cbz|zip)$/i, "") || path.basename(rootPath);
+}
+
+function mangaImagePage(filePath) {
+  return {
+    title: path.basename(filePath, path.extname(filePath)),
+    url: issueMangaResourceUrl({ kind: "file", filePath, mime: mangaImageMime(filePath) })
+  };
+}
+
+async function mangaArchiveChapter(filePath, title) {
+  const { entries } = await mangaArchiveIndex(filePath);
+  const names = Array.from(entries.keys()).sort((left, right) => left.localeCompare(right, "zh-CN", { numeric: true, sensitivity: "base" }));
+  return {
+    title,
+    kind: "images",
+    pages: names.map((entryName) => ({
+      title: path.basename(entryName, path.extname(entryName)),
+      url: issueMangaResourceUrl({ kind: "archive", archivePath: filePath, entryName, mime: mangaImageMime(entryName) })
+    }))
+  };
+}
+
+async function readMangaDocument(item) {
   if (!item || item.kind !== "manga" || typeof item.filePath !== "string") throw new Error("The comic entry is invalid");
   if (!fs.existsSync(item.filePath)) throw new Error("The imported comic path no longer exists");
   const stat = fs.statSync(item.filePath);
-  if (stat.isFile() && path.extname(item.filePath).toLowerCase() !== ".pdf") throw new Error("Only PDF comic files can be read");
-  const files = stat.isFile() ? [item.filePath] : findPdfChapters(item.filePath);
-  if (!files.length) throw new Error("No PDF chapters were found in this folder");
-  return {
-    title: item.title,
-    chapters: files.map((filePath) => ({
-      title: stat.isFile()
-        ? path.basename(filePath, path.extname(filePath))
-        : path.relative(item.filePath, filePath).replace(/\.pdf$/i, "").split(path.sep).join(" / "),
-      filePath
-    }))
-  };
-});
+  if (stat.isFile() && !mangaFilePattern.test(item.filePath)) throw new Error("This comic format is not supported");
+  const files = stat.isFile() ? [item.filePath] : findMangaFiles(item.filePath);
+  if (!files.length) throw new Error("No supported comic files were found");
 
-ipcMain.handle("reader:readMangaChapter", (_event, item, chapterPath) => {
-  if (!item || item.kind !== "manga" || typeof item.filePath !== "string" || typeof chapterPath !== "string") throw new Error("The comic chapter is invalid");
-  const rootPath = path.resolve(item.filePath);
-  const resolvedChapter = path.resolve(chapterPath);
-  const rootIsFile = fs.existsSync(rootPath) && fs.statSync(rootPath).isFile();
-  const relativePath = path.relative(rootPath, resolvedChapter);
-  const outsideRoot = rootIsFile ? resolvedChapter !== rootPath : relativePath.startsWith("..") || path.isAbsolute(relativePath);
-  if (outsideRoot || path.extname(resolvedChapter).toLowerCase() !== ".pdf") throw new Error("The comic chapter path is invalid");
-  return issueMangaPdfUrl(resolvedChapter);
-});
+  const chapters = [];
+  const imageGroups = new Map();
+  for (const filePath of files) {
+    const title = stat.isFile() ? path.basename(filePath, path.extname(filePath)) : mangaRelativeTitle(item.filePath, filePath);
+    if (path.extname(filePath).toLowerCase() === ".pdf") {
+      chapters.push({ title, kind: "pdf", resourceUrl: issueMangaResourceUrl({ kind: "file", filePath, mime: "application/pdf" }), sortKey: filePath });
+    } else if (mangaArchivePattern.test(filePath)) {
+      chapters.push({ ...(await mangaArchiveChapter(filePath, title)), sortKey: filePath });
+    } else if (mangaImagePattern.test(filePath)) {
+      const groupPath = stat.isFile() ? filePath : path.dirname(filePath);
+      const group = imageGroups.get(groupPath) || [];
+      group.push(filePath);
+      imageGroups.set(groupPath, group);
+    }
+  }
+  for (const [groupPath, imageFiles] of imageGroups) {
+    imageFiles.sort((left, right) => left.localeCompare(right, "zh-CN", { numeric: true, sensitivity: "base" }));
+    const title = stat.isFile() ? item.title : path.relative(item.filePath, groupPath).split(path.sep).join(" / ") || path.basename(item.filePath);
+    chapters.push({ title, kind: "images", pages: imageFiles.map(mangaImagePage), sortKey: groupPath });
+  }
+  chapters.sort((left, right) => left.sortKey.localeCompare(right.sortKey, "zh-CN", { numeric: true, sensitivity: "base" }));
+  console.log(`[reader] ${item.title}: ${chapters.length} manga chapter(s), ${chapters.reduce((total, chapter) => total + (chapter.pages?.length || 0), 0)} image page(s)`);
+  return { title: item.title, chapters: chapters.map(({ sortKey: _sortKey, ...chapter }) => chapter) };
+}
+
+ipcMain.handle("reader:readManga", (_event, item) => readMangaDocument(item));
 
 ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
   const isManga = kind === "manga";
@@ -2690,9 +2781,9 @@ ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
     title: isManga ? "导入漫画" : "导入轻小说",
     message: isManga ? "请选择漫画导入方式" : "请选择轻小说导入方式",
     detail: isManga
-      ? "可直接导入一个或多个 PDF；文件夹会递归识别其中的 PDF 分卷和章节。"
+      ? "支持 PDF、CBZ、ZIP 和常见图片；文件夹会递归识别分卷、章节和图片目录。"
       : "单个文件支持 TXT、Markdown；文件夹会递归识别分卷和章节。",
-    buttons: isManga ? ["导入单个 PDF", "导入漫画文件夹", "取消"] : ["导入单个文件", "导入分卷文件夹", "取消"],
+    buttons: isManga ? ["导入漫画文件", "导入漫画文件夹", "取消"] : ["导入单个文件", "导入分卷文件夹", "取消"],
     defaultId: 0,
     cancelId: 2
   });
@@ -2703,7 +2794,7 @@ ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
     properties: importFolder ? ["openDirectory"] : ["openFile", "multiSelections"],
     filters: isManga
       ? [
-          { name: "PDF 漫画", extensions: ["pdf"] },
+          { name: "漫画文件", extensions: ["pdf", "cbz", "zip", "jpg", "jpeg", "png", "webp", "gif", "bmp", "avif"] },
           { name: "All files", extensions: ["*"] }
         ]
       : [
@@ -2716,7 +2807,7 @@ ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
     title: importFolder ? path.basename(filePath) : path.basename(filePath, path.extname(filePath)),
     kind: isManga ? "manga" : "novel",
     filePath,
-    format: isManga ? (importFolder ? "PDF 文件夹" : "PDF") : importFolder ? "TXT / Markdown 文件夹" : path.extname(filePath).replace(/^\./, "").toUpperCase() || "FILE"
+    format: isManga ? (importFolder ? "漫画文件夹" : path.extname(filePath).replace(/^\./, "").toUpperCase() || "漫画") : importFolder ? "TXT / Markdown 文件夹" : path.extname(filePath).replace(/^\./, "").toUpperCase() || "FILE"
   }));
 });
 
@@ -3094,7 +3185,7 @@ ipcMain.handle("game:launch", async (_event, game) => {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-  registerMangaPdfProtocol();
+  registerMangaResourceProtocol();
 
   // Proxy: only use if PROXY_PORT env var is set
   configureProxy(process.env.PROXY_PORT);
@@ -3112,6 +3203,8 @@ app.on("before-quit", () => {
   readingWatchers.clear();
   for (const timer of readingWatchTimers.values()) clearTimeout(timer);
   readingWatchTimers.clear();
+  for (const archive of mangaArchiveCache.values()) archive.promise.then(({ zipFile }) => zipFile.close()).catch(() => undefined);
+  mangaArchiveCache.clear();
   // Snapshot all active sessions so crash recovery uses exact elapsed time,
   // not wall-clock difference (critical for system shutdown without closing app)
   for (const [sid, s] of activePlaySessions) {

@@ -29,6 +29,8 @@ function createPdfResponse(filePath, request) {
   const start = range?.start ?? 0;
   const end = range?.end ?? size - 1;
   const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Expose-Headers": "Accept-Ranges, Content-Length, Content-Range",
     "Accept-Ranges": "bytes",
     "Cache-Control": "no-store",
     "Content-Length": String(Math.max(0, end - start + 1)),
@@ -40,4 +42,17 @@ function createPdfResponse(filePath, request) {
   return new Response(body, { status: range ? 206 : 200, headers });
 }
 
-module.exports = { createPdfResponse, pdfByteRange };
+function createFileResponse(filePath, mimeType, request) {
+  const size = fs.statSync(filePath).size;
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Accept-Ranges": "bytes",
+    "Cache-Control": "no-store",
+    "Content-Length": String(size),
+    "Content-Type": mimeType
+  };
+  if (request.method === "HEAD") return new Response(null, { headers });
+  return new Response(Readable.toWeb(fs.createReadStream(filePath)), { headers });
+}
+
+module.exports = { createFileResponse, createPdfResponse, pdfByteRange };

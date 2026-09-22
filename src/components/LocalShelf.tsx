@@ -1,10 +1,12 @@
-import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImageOff, ImagePlus, ListTree, SlidersHorizontal, Trash2, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImageOff, ImagePlus, ListTree, Pencil, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { WheelEvent } from "react";
-import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind } from "../types";
+import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind, ReadingMangaChapter } from "../types";
 import { ResilientImage, useOnlineStatus } from "../network";
 
-type ReaderPage = { chapter: string; paragraphs?: string[]; pdfPath?: string };
+const MangaViewer = lazy(() => import("./MangaViewer").then((module) => ({ default: module.MangaViewer })));
+
+type ReaderPage = { chapter: string; paragraphs?: string[]; mangaChapter?: ReadingMangaChapter };
 type ActiveReader = { item: ReadingItem; title: string; pages: ReaderPage[] };
 
 const chapterPattern = /^(?:第[一二三四五六七八九十百千万两〇零0-9]+[章节卷回部篇].*|chapter\s+\d+.*)$/i;
@@ -45,12 +47,13 @@ function formatReadingTime(seconds = 0) {
   return hours ? `${hours} 小时 ${minutes} 分钟` : `${minutes} 分钟`;
 }
 
-export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, onSaveProgress, onAddReadingTime, onRemoveItem, onSetCover, onSetLocalCover }: {
+export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, onSaveProgress, onRename, onAddReadingTime, onRemoveItem, onSetCover, onSetLocalCover }: {
   items: ReadingItem[];
   selectedItemId?: string;
   selectionRequest?: number;
   onImport: (kind: ReadingItemKind) => void;
-  onSaveProgress: (itemId: string, page: number, chapter: string) => void;
+  onSaveProgress: (itemId: string, page: number, chapter: string, mangaPage?: number) => void;
+  onRename: (itemId: string, title: string) => void;
   onAddReadingTime: (itemId: string, seconds: number) => void;
   onRemoveItem: (item: ReadingItem) => boolean;
   onSetCover: (itemId: string, coverUrl: string, coverSource: string) => void;
@@ -59,16 +62,13 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   const isOnline = useOnlineStatus();
   const [reader, setReader] = useState<ActiveReader | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
+  const [mangaPageIndex, setMangaPageIndex] = useState(0);
   const [selectedItem, setSelectedItem] = useState<ReadingItem | null>(null);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [readingStartedAt, setReadingStartedAt] = useState<number | null>(null);
   const [coverCandidates, setCoverCandidates] = useState<ReadingCoverCandidate[]>([]);
   const [isFindingCovers, setIsFindingCovers] = useState(false);
   const [localCoverUrls, setLocalCoverUrls] = useState<Record<string, string>>({});
-  const [mangaPdfUrl, setMangaPdfUrl] = useState<string | null>(null);
-  const [mangaPdfError, setMangaPdfError] = useState("");
-  const [appliedMangaZoom, setAppliedMangaZoom] = useState(100);
-  const [isAltPressed, setIsAltPressed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -93,8 +93,6 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   }, [selectedItemId, selectionRequest]);
   const readerScrollRef = useRef<HTMLDivElement | null>(null);
   const wheelPageLockRef = useRef(0);
-  const mangaZoomRef = useRef(100);
-  const mangaZoomTimerRef = useRef<number | null>(null);
 
   useEffect(() => window.galLauncher.onReadingContentChanged(({ itemId }) => {
     if (!reader || reader.item.id !== itemId) return;
@@ -107,31 +105,9 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   }), [reader, pageIndex]);
 
   useEffect(() => {
-    const page = reader?.pages[pageIndex];
-    if (!reader || !page?.pdfPath) {
-      setMangaPdfUrl(null);
-      setMangaPdfError("");
-      return;
-    }
-    let disposed = false;
-    setMangaPdfUrl(null);
-    setMangaPdfError("");
-    window.galLauncher.readMangaChapter(reader.item, page.pdfPath).then((url) => {
-      if (disposed) return;
-      setMangaPdfUrl(url);
-    }).catch((error) => {
-      if (!disposed) setMangaPdfError(error instanceof Error ? error.message : "无法读取当前漫画章节。");
-    });
-    return () => {
-      disposed = true;
-    };
-  }, [reader, pageIndex]);
-
-  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Alt") setIsAltPressed(true);
       if (event.key === "Escape") closeReader();
-      if (!reader) return;
+      if (!reader || reader.item.kind === "manga") return;
       if (event.key === "ArrowLeft" || event.key === "PageUp") {
         event.preventDefault();
         setPageIndex((current) => Math.max(0, current - 1));
@@ -141,35 +117,23 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
         setPageIndex((current) => Math.min(reader.pages.length - 1, current + 1));
       }
     };
-    const onKeyUp = (event: KeyboardEvent) => { if (event.key === "Alt") setIsAltPressed(false); };
-    const onBlur = () => setIsAltPressed(false);
     window.addEventListener("keydown", onKeyDown);
-    window.addEventListener("keyup", onKeyUp);
-    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
-      window.removeEventListener("keyup", onKeyUp);
-      window.removeEventListener("blur", onBlur);
     };
   }, [reader, readingStartedAt]);
-
-  useEffect(() => () => {
-    if (mangaZoomTimerRef.current !== null) window.clearTimeout(mangaZoomTimerRef.current);
-  }, []);
-
-  useEffect(() => window.galLauncher.onAltKeyChanged(({ pressed }) => setIsAltPressed(pressed)), []);
 
   useEffect(() => {
     if (!reader) return;
     const page = reader.pages[pageIndex];
-    onSaveProgress(reader.item.id, pageIndex, page.chapter);
+    onSaveProgress(reader.item.id, pageIndex, page.chapter, reader.item.kind === "manga" ? mangaPageIndex : undefined);
     readerScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
-  }, [pageIndex, reader]);
+  }, [pageIndex, mangaPageIndex, reader]);
 
   async function loadReaderPages(item: ReadingItem): Promise<{ title: string; pages: ReaderPage[] }> {
     if (item.kind === "manga") {
       const document = await window.galLauncher.readManga(item);
-      return { title: document.title, pages: document.chapters.map((chapter) => ({ chapter: chapter.title, pdfPath: chapter.filePath })) };
+      return { title: document.title, pages: document.chapters.map((chapter) => ({ chapter: chapter.title, mangaChapter: chapter })) };
     }
     const document = await window.galLauncher.readNovel(item);
     const pages = document.chapters?.length
@@ -182,6 +146,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
     try {
       const { title, pages } = await loadReaderPages(item);
       setPageIndex(Math.min(item.lastReadPage ?? 0, pages.length - 1));
+      setMangaPageIndex(Math.max(0, item.lastReadMangaPage ?? 0));
       setReader({ item, title, pages });
       setReadingStartedAt(Date.now());
     } catch (error) {
@@ -192,19 +157,8 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
     }
   }
 
-  function handleMangaZoomWheel(event: WheelEvent<HTMLDivElement>) {
-    event.preventDefault();
-    const nextZoom = Math.max(50, Math.min(180, mangaZoomRef.current + (event.deltaY < 0 ? 10 : -10)));
-    mangaZoomRef.current = nextZoom;
-    if (mangaZoomTimerRef.current !== null) window.clearTimeout(mangaZoomTimerRef.current);
-    mangaZoomTimerRef.current = window.setTimeout(() => {
-      setAppliedMangaZoom(nextZoom);
-      mangaZoomTimerRef.current = null;
-    }, 180);
-  }
-
   function handleReaderWheel(event: WheelEvent<HTMLDivElement>) {
-    if (!reader || activePage?.pdfPath || event.deltaY <= 0 || pageIndex >= reader.pages.length - 1) return;
+    if (!reader || activePage?.mangaChapter || event.deltaY <= 0 || pageIndex >= reader.pages.length - 1) return;
     const scroller = event.currentTarget;
     const reachedBottom = scroller.scrollTop + scroller.clientHeight >= scroller.scrollHeight - 3;
     if (!reachedBottom || Date.now() < wheelPageLockRef.current) return;
@@ -224,6 +178,11 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
     if (!entries.some((entry) => entry.title === page.chapter)) entries.push({ title: page.chapter, pageIndex: index });
     return entries;
   }, []) ?? [];
+  const changeChapter = (nextIndex: number) => {
+    if (!reader || nextIndex < 0 || nextIndex >= reader.pages.length) return;
+    setPageIndex(nextIndex);
+    setMangaPageIndex(0);
+  };
 
   return (
     <section className="local-shelf" aria-labelledby="local-shelf-title">
@@ -253,7 +212,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
               }}
               onMouseLeave={(event) => { event.currentTarget.style.removeProperty("--tilt-x"); event.currentTarget.style.removeProperty("--tilt-y"); }}>
               <div className={`local-shelf-cover ${item.kind === "manga" ? "manga-a" : "novel-a"}`}><ResilientImage src={item.coverUrl || localCoverUrls[item.id]} alt="" fallback={item.coverUrl ? <span className="cover-missing-state"><ImageOff size={27} /><b>封面丢失了喵</b></span> : <><Icon size={34} /><span>{item.kind === "manga" ? "漫画" : "轻小说"}</span></>} /><b className="local-shelf-type-badge">{item.kind === "manga" ? "漫画" : "轻小说"}</b></div>
-              <div className="local-shelf-meta"><strong>{item.title}</strong><span>{item.lastReadChapter ? `读至 ${item.lastReadChapter}` : `${item.format} · 已导入`}</span></div>
+              <div className="local-shelf-meta"><strong>{item.title}</strong><span>{item.lastReadChapter ? `读至 ${item.lastReadChapter}${item.kind === "manga" && Number.isInteger(item.lastReadMangaPage) ? ` · 第 ${(item.lastReadMangaPage ?? 0) + 1} 页` : ""}` : `${item.format} · 已导入`}</span></div>
             </button>;
           })}
         </div>
@@ -277,12 +236,16 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
             setCoverCandidates(await window.galLauncher.findReadingCoverCandidates(selectedItem));
             setIsFindingCovers(false);
           }}>{!isOnline ? "离线模式：无法查找" : isFindingCovers ? "正在查找封面…" : "查找在线封面"}</button>
-          <button className="reading-cover-search" type="button" onClick={async () => { const path = await window.galLauncher.pickImage(); if (path) onSetLocalCover(selectedItem.id, path); }}><ImagePlus size={15} />上传本地封面</button></div>
+          <button className="reading-cover-search" type="button" onClick={async () => { const path = await window.galLauncher.pickImage(); if (path) onSetLocalCover(selectedItem.id, path); }}><ImagePlus size={15} />上传本地封面</button>
+          <button className="reading-cover-search" type="button" onClick={() => {
+            const nextTitle = window.prompt("请输入新的作品名称", selectedItem.title);
+            if (nextTitle?.trim()) onRename(selectedItem.id, nextTitle);
+          }}><Pencil size={15} />更改名称</button></div>
           {coverCandidates.length > 0 && <div className="reading-cover-candidates">{coverCandidates.map((candidate) => <button type="button" key={candidate.id} onClick={() => { onSetCover(selectedItem.id, candidate.imageUrl, candidate.source); setCoverCandidates([]); }}><ResilientImage src={candidate.imageUrl} alt="" fallback={<span className="cover-missing-state"><ImageOff size={20} /><b>封面丢失了喵</b></span>} /><span>{candidate.source}</span></button>)}</div>}
           <dl>
             <div><dt>格式</dt><dd>{selectedItem.format}</dd></div>
             <div><dt>总时长</dt><dd>{formatReadingTime(selectedItem.totalReadingSeconds)}</dd></div>
-            <div><dt>阅读进度</dt><dd>{selectedItem.lastReadChapter || "尚未开始"}</dd></div>
+            <div><dt>阅读进度</dt><dd>{selectedItem.lastReadChapter ? `${selectedItem.lastReadChapter}${selectedItem.kind === "manga" && Number.isInteger(selectedItem.lastReadMangaPage) ? ` · 第 ${(selectedItem.lastReadMangaPage ?? 0) + 1} 页` : ""}` : "尚未开始"}</dd></div>
             <div><dt>导入时间</dt><dd>{new Date(selectedItem.importedAt).toLocaleDateString()}</dd></div>
           </dl>
           <button className="reading-info-delete" type="button" onClick={() => {
@@ -295,12 +258,12 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
       )}
 
       {reader && activePage && (
-        <section className={`local-reader ${activePage.pdfPath ? "manga-reader" : ""}`} role="dialog" aria-modal="true" aria-label={reader.title}>
+        <section className={`local-reader ${activePage.mangaChapter ? "manga-reader" : ""}`} role="dialog" aria-modal="true" aria-label={reader.title}>
           <aside className="local-reader-chapter-rail" aria-label="章节目录">
             <div className="local-reader-chapter-panel">
               <p>章节目录</p>
               <div className="local-reader-chapter-list">
-                {chapterEntries.map((entry) => <button className={activePage.chapter === entry.title ? "active" : ""} type="button" key={`${entry.title}-${entry.pageIndex}`} onClick={() => setPageIndex(entry.pageIndex)}>{entry.title}</button>)}
+                {chapterEntries.map((entry) => <button className={activePage.chapter === entry.title ? "active" : ""} type="button" key={`${entry.title}-${entry.pageIndex}`} onClick={() => changeChapter(entry.pageIndex)}>{entry.title}</button>)}
               </div>
             </div>
             <div className="local-reader-chapter-handle"><ListTree size={20} /><span>目录</span></div>
@@ -310,19 +273,21 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
             <article className="local-reader-page">
               <p className="local-reader-kicker">{activePage.chapter}</p>
               <h2>{reader.title}</h2>
-              {activePage.pdfPath
-                ? mangaPdfUrl
-                  ? <div className="local-reader-pdf-viewport">
-                    <iframe className="local-reader-pdf" src={`${mangaPdfUrl}#zoom=${appliedMangaZoom}&toolbar=0&navpanes=0&scrollbar=0`} title={activePage.chapter} />
-                    {isAltPressed && <div className="manga-alt-zoom-layer" onWheel={handleMangaZoomWheel} aria-label="按住 Alt 使用滚轮缩放漫画" />}
-                  </div>
-                  : <div className="local-reader-pdf-state">{mangaPdfError || "正在读取漫画章节…"}</div>
+              {activePage.mangaChapter
+                ? <Suspense fallback={<div className="local-reader-pdf-state">正在加载漫画阅读器…</div>}><MangaViewer
+                    key={`${reader.item.id}-${pageIndex}`}
+                    chapter={activePage.mangaChapter}
+                    pageIndex={mangaPageIndex}
+                    onPageChange={setMangaPageIndex}
+                    onPreviousChapter={() => changeChapter(pageIndex - 1)}
+                    onNextChapter={() => changeChapter(pageIndex + 1)}
+                  /></Suspense>
                 : <div className="local-reader-text">{activePage.paragraphs?.map((paragraph, index) => <p key={index}>{paragraph}</p>)}</div>}
-              <nav className="local-reader-pagination" aria-label="阅读翻页">
+              {!activePage.mangaChapter && <nav className="local-reader-pagination" aria-label="阅读翻页">
                 <button type="button" aria-label="上一页" disabled={pageIndex === 0} onClick={() => setPageIndex((current) => current - 1)}><ChevronLeft size={18} /></button>
                 <span>{pageIndex + 1} / {reader.pages.length}</span>
                 <button type="button" aria-label="下一页" disabled={pageIndex === reader.pages.length - 1} onClick={() => setPageIndex((current) => current + 1)}><ChevronRight size={18} /></button>
-              </nav>
+              </nav>}
             </article>
           </div>
         </section>

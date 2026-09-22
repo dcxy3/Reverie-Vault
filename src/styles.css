@@ -2678,7 +2678,7 @@ textarea:focus-visible {
   display: none;
 }
 
-.local-reader-pdf-viewport {
+.manga-page-viewport {
   position: relative;
   width: 100%;
   height: 100vh;
@@ -2686,12 +2686,33 @@ textarea:focus-visible {
   background: rgba(8, 17, 25, 0.28);
 }
 
-.local-reader-pdf {
+.manga-page-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 16px 18px 72px;
+  overflow: auto;
+}
+
+.manga-page-canvas,
+.manga-page-image {
   display: block;
-  width: calc(100% + 18px);
-  height: 100%;
-  border: 0;
-  background: transparent;
+  max-width: none;
+  max-height: none;
+  border-radius: 3px;
+  background: #fff;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.34);
+}
+
+.manga-page-image {
+  width: auto;
+  height: auto;
+  max-width: calc(100vw - 104px);
+  max-height: calc(100vh - 104px);
+  object-fit: contain;
+  transform-origin: center;
+  transition: transform 150ms ease-out;
 }
 
 .local-reader-pdf-state {
@@ -2705,24 +2726,49 @@ textarea:focus-visible {
   background: rgba(8, 17, 25, 0.45);
 }
 
-.manga-reader .local-reader-pagination {
+.manga-reader-controls {
   position: fixed;
   bottom: 18px;
   left: calc(50% + 26px);
   z-index: 2;
-  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 42px;
+  padding: 6px 8px;
+  border: 1px solid rgba(210, 237, 253, 0.18);
+  border-radius: 10px;
+  color: #f5fbff;
   transform: translateX(-50%);
   background: rgba(11, 31, 47, 0.76);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(18px);
 }
 
-.manga-alt-zoom-layer {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 2;
-  cursor: zoom-in;
+.manga-reader-controls button {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 7px;
+  color: #f5fbff;
+}
+
+.manga-reader-controls button:hover {
+  background: rgba(123, 193, 229, 0.24);
+}
+
+.manga-reader-controls span {
+  min-width: 58px;
+  font-size: 11px;
+  text-align: center;
+}
+
+.manga-reader-controls i {
+  width: 1px;
+  height: 22px;
+  margin: 0 3px;
+  background: rgba(210, 237, 253, 0.18);
 }
 
 .local-reader-kicker {

@@ -482,11 +482,21 @@ export function useLibrary() {
     });
   }
 
-  function saveReadingProgress(itemId: string, page: number, chapter: string) {
+  function saveReadingProgress(itemId: string, page: number, chapter: string, mangaPage?: number) {
     setReadingItems((current) => {
       const next = current.map((item) => item.id === itemId
-        ? { ...item, lastReadPage: page, lastReadChapter: chapter, lastReadAt: new Date().toISOString() }
+        ? { ...item, lastReadPage: page, lastReadChapter: chapter, ...(Number.isInteger(mangaPage) ? { lastReadMangaPage: mangaPage } : {}), lastReadAt: new Date().toISOString() }
         : item);
+      void window.galLauncher.saveReadingLibrary(next);
+      return next;
+    });
+  }
+
+  function renameReadingItem(itemId: string, title: string) {
+    const nextTitle = title.trim();
+    if (!nextTitle) return;
+    setReadingItems((current) => {
+      const next = current.map((item) => item.id === itemId ? { ...item, title: nextTitle } : item);
       void window.galLauncher.saveReadingLibrary(next);
       return next;
     });
@@ -611,6 +621,7 @@ export function useLibrary() {
     chooseImage
     , importReadingItems
     , saveReadingProgress
+    , renameReadingItem
     , addReadingTime
     , removeReadingItem
     , setReadingCover

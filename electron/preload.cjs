@@ -6,16 +6,10 @@ contextBridge.exposeInMainWorld("galLauncher", {
   pickReadingItems: (kind) => ipcRenderer.invoke("dialog:pickReadingItems", kind),
   readNovel: (item) => ipcRenderer.invoke("reader:readNovel", item),
   readManga: (item) => ipcRenderer.invoke("reader:readManga", item),
-  readMangaChapter: (item, filePath) => ipcRenderer.invoke("reader:readMangaChapter", item, filePath),
   onReadingContentChanged: (callback) => {
     const listener = (_event, payload) => callback(payload);
     ipcRenderer.on("reader:contentChanged", listener);
     return () => ipcRenderer.removeListener("reader:contentChanged", listener);
-  },
-  onAltKeyChanged: (callback) => {
-    const listener = (_event, payload) => callback(payload);
-    ipcRenderer.on("reader:altKeyChanged", listener);
-    return () => ipcRenderer.removeListener("reader:altKeyChanged", listener);
   },
   toggleFullscreen: () => ipcRenderer.invoke("window:toggleFullscreen"),
   openCiallo: () => ipcRenderer.invoke("window:openCiallo"),
