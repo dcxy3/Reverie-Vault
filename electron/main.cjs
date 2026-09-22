@@ -155,26 +155,30 @@ app.setPath("userData", fs.existsSync(legacyUserDataPath) ? legacyUserDataPath :
   }
 
   const domainQueues = new Map();
-  function limitDomain(url, concurrency = 3) {
+  function withDomainLimit(url, concurrency = 3, task) {
     const origin = new URL(url).origin;
     if (!domainQueues.has(origin)) {
       domainQueues.set(origin, { running: 0, queue: [] });
     }
     const queue = domainQueues.get(origin);
-    return new Promise((resolve) => {
-      const run = () => {
+    return new Promise((resolve, reject) => {
+      const run = async () => {
         queue.running++;
-        resolve();
+        try {
+          resolve(await task());
+        } catch (error) {
+          reject(error);
+        } finally {
+          queue.running--;
+          const next = queue.queue.shift();
+          if (next) next();
+        }
       };
       if (queue.running < concurrency) {
         run();
       } else {
         queue.queue.push(run);
       }
-    }).finally(() => {
-      queue.running--;
-      const next = queue.queue.shift();
-      if (next) next();
     });
   }
 
@@ -1126,8 +1130,14 @@ function pickPreferredTitle(vn) {
   );
 }
 
+const vndbSearchCache = new Map();
+
 async function searchVndb(query) {
-  const response = await fetchWithRetry("https://api.vndb.org/kana/vn", {
+  const cacheKey = normalizeSearchText(query);
+  const cached = vndbSearchCache.get(cacheKey);
+  if (cached && Date.now() - cached.cachedAt < 30 * 60 * 1000) return cached.promise;
+
+  const promise = fetchWithRetry("https://api.vndb.org/kana/vn", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1135,10 +1145,14 @@ async function searchVndb(query) {
       fields: "id,title,alttitle,titles.title,titles.latin,titles.lang,titles.main,description,image.url,screenshots.url,screenshots.thumbnail,released,developers.name,tags.name,tags.rating,tags.spoiler,tags.category,extlinks.url,extlinks.label,extlinks.name",
       results: 5
     }),
-    signal: AbortSignal.timeout(7000)
+    signal: AbortSignal.timeout(6000)
+  }, 1).then(async (response) => {
+    if (!response.ok) throw new Error(`VNDB ${response.status}`);
+    return (await response.json()).results || [];
   });
-  if (!response.ok) throw new Error(`VNDB ${response.status}`);
-  return (await response.json()).results || [];
+  vndbSearchCache.set(cacheKey, { cachedAt: Date.now(), promise });
+  promise.catch(() => vndbSearchCache.delete(cacheKey));
+  return promise;
 }
 
 async function getVndbById(id) {
@@ -1186,15 +1200,15 @@ async function searchMetadataCandidates(game, keyword = "") {
   const queries = keyword ? [keyword, ...titleQueriesFor({ ...game, title: keyword, originalTitle: keyword })] : titleQueriesFor(game);
   const matches = [];
 
-  for (const query of Array.from(new Set(queries)).slice(0, 10)) {
-    try {
-      const results = await searchVndb(query);
-      for (const vn of results) {
-        const confidence = scoreVnCandidate(query, vn);
-        if (confidence >= 0.5) matches.push({ vn, confidence, query });
-      }
-    } catch {
-      continue;
+  const uniqueQueries = Array.from(new Set(queries)).slice(0, 4);
+  const settled = await Promise.allSettled(
+    uniqueQueries.map((query) => searchVndb(query).then((results) => ({ query, results })))
+  );
+  for (const item of settled) {
+    if (item.status !== "fulfilled") continue;
+    for (const vn of item.value.results) {
+      const confidence = scoreVnCandidate(item.value.query, vn);
+      if (confidence >= 0.5) matches.push({ vn, confidence, query: item.value.query });
     }
   }
 
@@ -1251,7 +1265,7 @@ function coverCandidateScore(filePath, sourceWeight = 0) {
   const { width, height, ratio } = dimensions;
 
   let tier = null;
-  if (width >= 1080 && height >= 600 && ratio >= 1.18 && ratio <= 2.80) {
+  if (width >= 1024 && height >= 560 && ratio >= 1.18 && ratio <= 2.80) {
     tier = "landscape";
   } else if (width >= 400 && height >= 560 && ratio >= 0.50 && ratio < 1.18) {
     tier = "portrait";
@@ -1363,7 +1377,7 @@ function readCoverCandidateCache(game) {
   if (!payload || !Array.isArray(payload.candidates)) return [];
   if (payload.version !== 4) return [];
   const ageMs = Date.now() - new Date(payload.updatedAt || 0).getTime();
-  if (!Number.isFinite(ageMs) || ageMs > 10 * 60 * 1000) return [];
+  if (!Number.isFinite(ageMs) || ageMs > 24 * 60 * 60 * 1000) return [];
   return payload.candidates
     .filter((candidate) => candidate?.path && fs.existsSync(candidate.path))
     .slice(0, 24);
@@ -1381,10 +1395,10 @@ async function downloadCandidate(game, url, source, sourceWeight, reason) {
   if (!url) return null;
   const filePath = candidateFilePath(game, url, source.toLowerCase().replace(/[^a-z0-9]+/g, ""));
   if (!fs.existsSync(filePath) || fs.statSync(filePath).size === 0) {
-    const response = await fetch(url, {
+    const response = await withDomainLimit(url, 4, () => fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
-      signal: AbortSignal.timeout(30000)
-    });
+      signal: AbortSignal.timeout(12000)
+    }));
     if (!response.ok) { console.log(`[cover] ${source} download failed: HTTP ${response.status} — ${url.slice(0, 80)}`); return null; }
     fs.writeFileSync(filePath, Buffer.from(await response.arrayBuffer()));
   }
@@ -1393,7 +1407,7 @@ async function downloadCandidate(game, url, source, sourceWeight, reason) {
   if (!scored) {
     if (!process.env.COVER_QUIET) {
       const dim = imageDimensions(filePath);
-      console.log(`[cover] ${source} rejected: ${dim.width}x${dim.height} ratio=${dim.ratio?.toFixed(2)} (min 1080x600, ratio 1.18-2.8) — ${path.basename(filePath)}`);
+      console.log(`[cover] ${source} rejected: ${dim.width}x${dim.height} ratio=${dim.ratio?.toFixed(2)} (min 1024x560, ratio 1.18-2.8) — ${path.basename(filePath)}`);
     }
     return null;
   }
@@ -1444,6 +1458,7 @@ async function fetchWithRetry(url, options = {}, retries = 2) {
       }
       return response;
     } catch (err) {
+      if (options.signal?.aborted) throw err;
       if (attempt < retries) {
         await new Promise((r) => setTimeout(r, 800 * (attempt + 1) + Math.random() * 400));
         continue;
@@ -1679,11 +1694,11 @@ function lzacgArticlesFromCategory(html, query) {
 async function searchLzacgArticles(query, categoryPageLimit = 1) {
   const all = [];
   try {
-    await limitDomain("https://lzacg.cc/", 3);
-    const response = await fetchWithRetry(`https://lzacg.cc/?s=${encodeURIComponent(query)}`, {
+    const searchUrl = `https://lzacg.cc/?s=${encodeURIComponent(query)}`;
+    const response = await withDomainLimit(searchUrl, 3, () => fetchWithRetry(searchUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
       signal: AbortSignal.timeout(9000)
-    });
+    }, 1));
     if (response.ok) all.push(...lzacgArticlesFromSearch(await response.text(), query));
   } catch (error) {
     console.warn("[cover] Lzacg search failed:", error.message?.slice(0, 80));
@@ -1695,11 +1710,10 @@ async function searchLzacgArticles(query, categoryPageLimit = 1) {
   ];
   const settled = await Promise.allSettled(
     categoryPages.map(async (url) => {
-      await limitDomain(url, 3);
-      const response = await fetchWithRetry(url, {
+      const response = await withDomainLimit(url, 3, () => fetchWithRetry(url, {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
         signal: AbortSignal.timeout(9000)
-      });
+      }, 1));
       if (!response.ok) return [];
       return lzacgArticlesFromCategory(await response.text(), query);
     })
@@ -1718,15 +1732,14 @@ async function searchLzacgArticles(query, categoryPageLimit = 1) {
 
 async function lzacgCandidatesForArticle(game, article) {
   try {
-    await limitDomain(article.url, 3);
-    const response = await fetch(article.url, {
+    const response = await withDomainLimit(article.url, 3, () => fetch(article.url, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
       signal: AbortSignal.timeout(9000)
-    });
+    }));
     if (!response.ok) return [];
     const urls = lzacgImageUrlsFromArticle(await response.text(), article.url);
     const settled = await Promise.allSettled(
-      urls.slice(0, 5).map((url, index) =>
+      urls.slice(0, 4).map((url, index) =>
         downloadCandidate(game, url, "量子ACG", 132 + article.score * 26 - index * 6, `${article.title} 第 ${index + 1} 张图`)
       )
     );
@@ -1738,7 +1751,7 @@ async function lzacgCandidatesForArticle(game, article) {
 }
 
 async function findLzacgCandidates(game, options = {}) {
-  const baseQueries = rawTitleQueriesFor(game).slice(0, options.fast ? 6 : 10);
+  const baseQueries = rawTitleQueriesFor(game).slice(0, options.fast ? 4 : 6);
   const onlineQueries = [];
   if (!options.fast) {
     const vnSettled = await Promise.allSettled(baseQueries.slice(0, 4).map((query) => searchVndb(query)));
@@ -1751,8 +1764,8 @@ async function findLzacgCandidates(game, options = {}) {
   }
   const queries = Array.from(
     new Set([...baseQueries, ...onlineQueries].map(cleanText).filter((item) => !isGenericSearchText(item)).flatMap(expandSearchAlias))
-  ).slice(0, options.fast ? 8 : 16);
-  const searchSettled = await Promise.allSettled(queries.map((query) => searchLzacgArticles(query, options.fast ? 4 : 10)));
+  ).slice(0, options.fast ? 4 : 8);
+  const searchSettled = await Promise.allSettled(queries.map((query) => searchLzacgArticles(query, options.fast ? 1 : 3)));
   const articles = [];
   const seen = new Set();
   for (const item of searchSettled) {
@@ -1764,7 +1777,7 @@ async function findLzacgCandidates(game, options = {}) {
     }
   }
   const articleSettled = await Promise.allSettled(
-    articles.sort((a, b) => b.score - a.score).slice(0, 3).map((article) => lzacgCandidatesForArticle(game, article))
+    articles.sort((a, b) => b.score - a.score).slice(0, 2).map((article) => lzacgCandidatesForArticle(game, article))
   );
   return articleSettled.flatMap((item) => (item.status === "fulfilled" ? item.value : []));
 }
@@ -1827,11 +1840,10 @@ async function searchDlsiteArticles(query) {
   ];
   const settled = await Promise.allSettled(urls.map(async (url) => {
     try {
-      await limitDomain("https://www.dlsite.com", 3);
-      const response = await fetch(url, {
+      const response = await withDomainLimit(url, 3, () => fetch(url, {
         headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
         signal: AbortSignal.timeout(10000)
-      });
+      }));
       if (!response.ok) return [];
       return searchDlsiteArticlesFromHtml(await response.text(), query);
     } catch (error) {
@@ -1854,11 +1866,10 @@ async function searchDlsiteArticles(query) {
 
 async function dlsiteCandidatesForProduct(game, article) {
   try {
-    await limitDomain("https://www.dlsite.com", 3);
-    const response = await fetch(article.url, {
+    const response = await withDomainLimit(article.url, 3, () => fetch(article.url, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
       signal: AbortSignal.timeout(10000)
-    });
+    }));
     if (!response.ok) return [];
     const urls = dlsiteImageUrlsFromProduct(await response.text(), article.url);
     const settled = await Promise.allSettled(
@@ -1970,14 +1981,13 @@ async function search2DFanSubjects(query) {
 
   const settled = await Promise.allSettled(urls.map(async ({ url, type }) => {
     try {
-      await limitDomain("https://2dfan.com", 3);
-      const response = await fetch(url, {
+      const response = await withDomainLimit(url, 3, () => fetch(url, {
         headers: {
           "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
           "Accept": type === "json" ? "application/json" : "text/html"
         },
         signal: AbortSignal.timeout(10000)
-      });
+      }));
       if (!response.ok) return [];
       if (type === "json") {
         const data = await response.json().catch(() => null);
@@ -2007,11 +2017,10 @@ async function search2DFanSubjects(query) {
 
 async function twoDFanCandidatesForSubject(game, subject) {
   try {
-    await limitDomain("https://2dfan.com", 3);
-    const response = await fetch(subject.url, {
+    const response = await withDomainLimit(subject.url, 3, () => fetch(subject.url, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
       signal: AbortSignal.timeout(10000)
-    });
+    }));
     if (!response.ok) return [];
     const urls = twoDFanImageUrlsFromSubject(await response.text(), subject.url);
     const settled = await Promise.allSettled(
@@ -2046,7 +2055,7 @@ async function find2DFanCandidates(game) {
 }
 
 async function findVndbScreenshotCandidates(game) {
-  const queries = titleQueriesFor(game).slice(0, 6);
+  const queries = titleQueriesFor(game).slice(0, 4);
   const settled = await Promise.allSettled(queries.map((query) => searchVndb(query).then((results) => ({ query, results }))));
   const matches = [];
   for (const item of settled) {
@@ -2064,9 +2073,9 @@ async function findVndbScreenshotCandidates(game) {
   }
 
   const downloads = [];
-  for (const { vn, confidence } of Array.from(bestById.values()).slice(0, 2)) {
+  for (const { vn, confidence } of Array.from(bestById.values()).slice(0, 1)) {
     const urls = Array.from(new Set((vn.screenshots || []).flatMap((shot) => shot.url ? [shot.url] : []).filter(Boolean)));
-    for (const [index, url] of urls.slice(0, 10).entries()) {
+    for (const [index, url] of urls.slice(0, 6).entries()) {
       downloads.push(downloadCandidate(game, url, "VNDB截图", 116 + confidence * 22 - index * 2, `${vn.title || vn.id} / ${vn.id}`));
     }
   }
@@ -2076,7 +2085,7 @@ async function findVndbScreenshotCandidates(game) {
 }
 
   async function findVndbImageCandidates(game) {
-    const queries = titleQueriesFor(game).slice(0, 6);
+    const queries = titleQueriesFor(game).slice(0, 4);
     const settled = await Promise.allSettled(queries.map((query) => searchVndb(query).then((results) => ({ query, results }))));
     const downloads = [];
     const seen = new Set();
@@ -2089,7 +2098,7 @@ async function findVndbScreenshotCandidates(game) {
         downloads.push(downloadCandidate(game, vn.image.url, "VNDB封面", 62 + confidence * 12, `${vn.title || vn.id} / ${vn.id}`));
       }
     }
-    const results = await Promise.allSettled(downloads.slice(0, 6));
+    const results = await Promise.allSettled(downloads.slice(0, 4));
     return results.flatMap((item) => (item.status === "fulfilled" && item.value ? [item.value] : []));
   }
 
@@ -2123,7 +2132,7 @@ async function findVndbScreenshotCandidates(game) {
   }
 
   async function findBangumiCoverCandidates(game) {
-    const queries = rawTitleQueriesFor(game).slice(0, 8);
+    const queries = rawTitleQueriesFor(game).slice(0, 4);
     const settled = await Promise.allSettled(
       queries.map((query) => searchBangumiWeb(query).then((items) => ({ query, items })))
     );
@@ -2144,7 +2153,7 @@ async function findVndbScreenshotCandidates(game) {
       }
     }
 
-    const results = await Promise.allSettled(downloads.slice(0, 8));
+    const results = await Promise.allSettled(downloads.slice(0, 4));
     const passed = results.filter((item) => item.status === "fulfilled" && item.value).length;
     if (!process.env.COVER_QUIET) {
       console.log(`[cover:${game.title.slice(0, 20)}] Bangumi: ${settled.filter((s) => s.status === "fulfilled").length}/${queries.length} queries ok, ${totalFound} items (${confFiltered} low-conf), ${downloads.length} downloaded, ${passed} passed quality`);
@@ -2155,22 +2164,29 @@ async function findVndbScreenshotCandidates(game) {
   async function findSteamCandidates(game) {
     const queries = rawTitleQueriesFor(game)
       .filter((q) => q.length >= 3)
-      .slice(0, 8);
+      .slice(0, 4);
     const appMatches = [];
-    for (const query of queries) {
-      try {
+    const searchResults = await Promise.allSettled(
+      queries.map(async (query) => {
         const response = await fetchWithRetry(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=us`, {
           headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
-          signal: AbortSignal.timeout(7000)
-        });
-        if (!response.ok) continue;
+          signal: AbortSignal.timeout(6000)
+        }, 1);
+        if (!response.ok) return [];
         const data = await response.json();
-        for (const item of (data.items || []).slice(0, 8)) {
+        const matches = [];
+        for (const item of (data.items || []).slice(0, 6)) {
           const confidence = similarity(query, item.name || "");
-          if (confidence >= 0.45) appMatches.push({ appid: item.id, name: item.name, confidence, query });
+          if (confidence >= 0.45) matches.push({ appid: item.id, name: item.name, confidence, query });
         }
-      } catch (error) {
-        console.warn("[cover] Steam search failed:", error.message?.slice(0, 80));
+        return matches;
+      })
+    );
+    for (const result of searchResults) {
+      if (result.status === "fulfilled") {
+        appMatches.push(...result.value);
+      } else {
+        console.warn("[cover] Steam search failed:", result.reason?.message?.slice(0, 80));
       }
     }
 
@@ -2184,15 +2200,15 @@ async function findVndbScreenshotCandidates(game) {
     }
 
     const downloads = [];
-    for (const match of Array.from(bestByApp.values()).slice(0, 4)) {
+    const detailResults = await Promise.allSettled(Array.from(bestByApp.values()).slice(0, 3).map(async (match) => {
       try {
         const response = await fetch(`https://store.steampowered.com/api/appdetails?appids=${match.appid}&filters=basic,screenshots`, {
           headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
           signal: AbortSignal.timeout(7000)
         });
-        if (!response.ok) continue;
+        if (!response.ok) return [];
         const details = (await response.json())?.[match.appid]?.data;
-        if (!details) continue;
+        if (!details) return [];
         const urls = [
           `https://cdn.cloudflare.steamstatic.com/steam/apps/${match.appid}/library_hero.jpg`,
           `https://cdn.cloudflare.steamstatic.com/steam/apps/${match.appid}/capsule_616x353.jpg`,
@@ -2200,14 +2216,20 @@ async function findVndbScreenshotCandidates(game) {
           details.header_image,
           ...(details.screenshots || []).flatMap((shot) => [shot.path_full, shot.path_thumbnail])
         ].filter(Boolean);
-        for (const [index, url] of Array.from(new Set(urls)).slice(0, 14).entries()) {
+        const candidates = [];
+        for (const [index, url] of Array.from(new Set(urls)).slice(0, 6).entries()) {
           const isLibraryAsset = /library_hero|capsule_616x353|header\.jpg/i.test(url);
           const weight = (isLibraryAsset ? 148 : 122) + match.confidence * 38 - index * 2;
-          downloads.push(downloadCandidate(game, url, "Steam", weight, `${details.name || match.name} / Steam ${match.appid}`));
+          candidates.push(downloadCandidate(game, url, "Steam", weight, `${details.name || match.name} / Steam ${match.appid}`));
         }
+        return candidates;
       } catch (error) {
         console.warn("[cover] Steam details failed:", error.message?.slice(0, 80));
+        return [];
       }
+    }));
+    for (const result of detailResults) {
+      if (result.status === "fulfilled") downloads.push(...result.value);
     }
 
     const results = await Promise.allSettled(downloads);
@@ -2241,11 +2263,10 @@ async function officialImageCandidatesFromPage(game, pageUrl, depth = 1, visited
   if (visited.has(pageUrl) || visited.size >= 8) return [];
   visited.add(pageUrl);
   try {
-    await limitDomain(pageUrl, 3);
-    const response = await fetch(pageUrl, {
+    const response = await withDomainLimit(pageUrl, 3, () => fetch(pageUrl, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
       signal: AbortSignal.timeout(6000)
-    });
+    }));
     if (!response.ok) return [];
     const html = await response.text();
     const urls = imageUrlsFromHtml(html, pageUrl);
@@ -2297,7 +2318,7 @@ async function bangumiOfficialLinks(query) {
 
 async function findCoverCandidates(game) {
   const cached = readCoverCandidateCache(game);
-  if (cached.length >= 6) return cached;
+  if (cached.length >= 3) return cached;
 
   const localCandidates = [
     existingCoverCandidate(game)
@@ -2323,11 +2344,11 @@ async function findCoverCandidates(game) {
   }
   let candidates = mergeCoverCandidates([localCandidates, ...fastGroups]);
 
-  const strongCount = candidates.filter((item) => item.score >= 168 && item.width >= 1280).length;
+  const strongCount = candidates.filter((item) => item.score >= 168 && item.width >= 1024).length;
   if (!process.env.COVER_QUIET) {
-    console.log(`[cover:${game.title.slice(0, 20)}] Phase 1 total: ${candidates.length} (strong: ${strongCount}) → Phase 2: ${strongCount < 3 ? "triggered" : "skipped"}`);
+    console.log(`[cover:${game.title.slice(0, 20)}] Phase 1 total: ${candidates.length} (strong: ${strongCount}) → Phase 2: ${candidates.length < 3 ? "triggered" : "skipped"}`);
   }
-  if (strongCount < 3) {
+  if (candidates.length < 3) {
     const slowLabels = ["VNDB(official)", "Lzacg(slow)"];
     const slowResults = await Promise.allSettled([
       findVndbOfficialCandidates(game),
