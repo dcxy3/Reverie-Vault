@@ -16,8 +16,10 @@ The app stores the following on your machine:
 Typical Windows location:
 
 ```text
-%APPDATA%\gal-launcher\library
+%APPDATA%\Reverie Vault\library
 ```
+
+For compatibility, existing installations that already have `%APPDATA%\gal-launcher` continue to use that legacy directory.
 
 ## Network Requests
 

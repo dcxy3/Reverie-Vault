@@ -4,10 +4,10 @@
 
 ## 1. 下载
 
-进入 GitHub 的 **Releases** 页面，下载最新版里的：
+进入 GitHub 的 **Releases** 页面，根据需要下载安装版、便携版或绿色版。推荐普通用户下载：
 
 ```text
-Reverie Vault.exe
+Reverie Vault Setup 0.3.0.exe
 ```
 
 下载后双击打开。
@@ -106,7 +106,7 @@ SiglusEngine.exe
 默认保存在：
 
 ```text
-%APPDATA%\gal-launcher\library
+%APPDATA%\Reverie Vault\library
 ```
 
 里面包括：
@@ -116,6 +116,8 @@ SiglusEngine.exe
 - 封面缓存
 - 背景图缓存
 - 游玩记录
+
+从旧版升级的用户如果已经存在 `%APPDATA%\gal-launcher`，程序会继续使用旧目录，以保留原有数据库。
 
 这些都是你的个人数据。
 

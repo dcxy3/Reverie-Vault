@@ -6,13 +6,13 @@
   "main": "electron/main.cjs",
   "author": "Reverie Vault",
   "license": "MIT",
-  "homepage": "https://github.com/KamiNeko-pre/gal-launcher#readme",
+  "homepage": "https://github.com/dcxy3/Reverie-Vault#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/KamiNeko-pre/gal-launcher.git"
+    "url": "git+https://github.com/dcxy3/Reverie-Vault.git"
   },
   "bugs": {
-    "url": "https://github.com/KamiNeko-pre/gal-launcher/issues"
+    "url": "https://github.com/dcxy3/Reverie-Vault/issues"
   },
   "keywords": [
     "galgame",

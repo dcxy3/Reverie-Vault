@@ -9,6 +9,7 @@ out/
 
 # Local Electron/user data
 **/gal-launcher/library/
+**/Reverie Vault/library/
 **/games.json
 **/covers/
 **/backgrounds/

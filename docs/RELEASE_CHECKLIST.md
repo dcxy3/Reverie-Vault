@@ -6,7 +6,7 @@ Use this checklist before publishing a new Reverie Vault release.
 
 - [ ] No game files are committed.
 - [ ] No downloaded covers/backgrounds are committed.
-- [ ] No `%APPDATA%\gal-launcher` user data is committed.
+- [ ] No `%APPDATA%\Reverie Vault` or legacy `%APPDATA%\gal-launcher` user data is committed.
 - [ ] No personal one-off maintenance scripts are committed.
 - [ ] `README.md` is up to date.
 - [ ] `CHANGELOG.md` includes the new version.
@@ -48,8 +48,7 @@ Do not run `npm run dist:portable` for the normal review path. The portable buil
 - [ ] Metadata search works or fails gracefully.
 - [ ] Cover picker works or fails gracefully.
 - [ ] Backup export/import works.
-- [ ] Theme picker can switch all bundled themes.
-- [ ] Collection/library views work in every theme.
+- [ ] Cinema layout, collection view, and local shelf display correctly.
 
 ## Legal / Source Hygiene
 
@@ -62,9 +61,9 @@ Do not run `npm run dist:portable` for the normal review path. The portable buil
 ## GitHub Release
 
 - [ ] Create a version tag, for example `v0.3.0`.
-- [ ] Zip `release/win-unpacked` as `Reverie-Vault-win-unpacked.zip`.
-- [ ] Attach `Reverie-Vault-win-unpacked.zip` for normal users.
-- [ ] Only attach a portable exe/zip when a single-file build is explicitly needed.
+- [ ] Attach `Reverie Vault Setup 0.3.0.exe` for normal users.
+- [ ] Zip `release/win-unpacked` as `Reverie Vault Green 0.3.0 x64.zip` for long-term portable use.
+- [ ] Attach `Reverie Vault Portable 0.3.0.exe` when a single-file build is needed.
 - [ ] Include a short changelog.
 - [ ] Mention Windows support status.
 - [ ] Tell users that Windows may show an "unknown publisher" warning because the app is unsigned.
@@ -74,9 +73,9 @@ Do not run `npm run dist:portable` for the normal review path. The portable buil
 ```text
 Reverie Vault v0.3.0
 
-本版本重写了主题系统，新增 Arcade、Atelier、Aurora、Lumen Shelf 等多套独立界面。
+本版本统一使用 Cinema 沉浸式界面，并完善游戏、书架与音乐收藏体验。
 
-下载 Reverie-Vault-win-unpacked.zip 后解压，运行 win-unpacked/Reverie Vault.exe。
+普通用户请下载 Reverie Vault Setup 0.3.0.exe。免安装使用可下载 Reverie Vault Green 0.3.0 x64.zip，完整解压后运行 win-unpacked/Reverie Vault.exe。
 
 这是一个本地 Galgame / 视觉小说启动器，不包含任何游戏本体、破解或下载资源。
 如果 Windows 提示未知发布者，是因为当前版本尚未购买代码签名证书。
