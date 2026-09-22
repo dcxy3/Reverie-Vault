@@ -1157,7 +1157,7 @@ async function searchVndb(query) {
 
 async function getVndbById(id) {
   if (!id) return null;
-  const response = await fetch("https://api.vndb.org/kana/vn", {
+  const response = await fetchWithRetry("https://api.vndb.org/kana/vn", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -1165,8 +1165,8 @@ async function getVndbById(id) {
       fields: "id,title,alttitle,titles.title,titles.latin,titles.lang,titles.main,description,image.url,screenshots.url,screenshots.thumbnail,released,developers.name,tags.name,tags.rating,tags.spoiler,tags.category,extlinks.url,extlinks.label,extlinks.name",
       results: 1
     }),
-    signal: AbortSignal.timeout(7000)
-  });
+    signal: AbortSignal.timeout(6000)
+  }, 1);
   if (!response.ok) return null;
   return ((await response.json()).results || [])[0] || null;
 }
@@ -1236,7 +1236,8 @@ async function searchMetadataCandidates(game, keyword = "") {
 }
 
 async function hydrateMetadataCandidate(game, candidate) {
-  const vn = (await getVndbById(candidate.sourceId)) || (await searchVndb(candidate.title || "")).find((item) => item.id === candidate.sourceId);
+  const directMatch = await getVndbById(candidate.sourceId).catch(() => null);
+  const vn = directMatch || (await searchVndb(candidate.title || "")).find((item) => item.id === candidate.sourceId);
   if (!vn) return { confidence: 0, source: "none" };
   const coverPath = vn.image?.url || "";
   let description = vn.description || "";
@@ -1347,14 +1348,6 @@ function candidateFilePath(game, url, prefix) {
   return path.join(assetDir("cover-candidates"), `${game.id || "candidate"}-${prefix}-${hash}${safeExt}`);
 }
 
-function coverCodeVersion() {
-  try {
-    return fs.statSync(__filename).mtimeMs.toString(36);
-  } catch {
-    return "0";
-  }
-}
-
 function coverCacheKey(game) {
   const value = [
     game.id,
@@ -1362,8 +1355,7 @@ function coverCacheKey(game) {
     game.originalTitle,
     game.developer,
     game.installPath,
-    game.executablePath,
-    coverCodeVersion()
+    game.executablePath
   ].filter(Boolean).join("|");
   return crypto.createHash("sha1").update(value || "unknown").digest("hex");
 }
@@ -1374,11 +1366,31 @@ function coverCachePath(game) {
 
 function readCoverCandidateCache(game) {
   const payload = readJsonFile(coverCachePath(game), null);
-  if (!payload || !Array.isArray(payload.candidates)) return [];
-  if (payload.version !== 4) return [];
-  const ageMs = Date.now() - new Date(payload.updatedAt || 0).getTime();
-  if (!Number.isFinite(ageMs) || ageMs > 24 * 60 * 60 * 1000) return [];
-  return payload.candidates
+  const currentAgeMs = Date.now() - new Date(payload?.updatedAt || 0).getTime();
+  const current = payload?.version === 4 && Array.isArray(payload.candidates) && Number.isFinite(currentAgeMs) && currentAgeMs <= 24 * 60 * 60 * 1000
+    ? payload.candidates
+    : [];
+
+  const legacy = [];
+  const cacheDir = assetDir("cover-candidate-cache");
+  const gamePrefix = `${game.id}-`;
+  try {
+    const files = fs.readdirSync(cacheDir, { withFileTypes: true })
+      .filter((entry) => entry.isFile() && entry.name.endsWith(".json"))
+      .map((entry) => path.join(cacheDir, entry.name))
+      .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs)
+      .slice(0, 200);
+    for (const filePath of files) {
+      const oldPayload = readJsonFile(filePath, null);
+      if (!Array.isArray(oldPayload?.candidates)) continue;
+      const belongsToGame = oldPayload.candidates.some((candidate) => path.basename(String(candidate?.path || "")).startsWith(gamePrefix));
+      if (belongsToGame) legacy.push(...oldPayload.candidates);
+    }
+  } catch {
+    // Cache recovery is best-effort; a fresh online search remains available.
+  }
+
+  return mergeCoverCandidates([current, legacy])
     .filter((candidate) => candidate?.path && fs.existsSync(candidate.path))
     .slice(0, 24);
 }
@@ -1387,6 +1399,7 @@ function writeCoverCandidateCache(game, candidates) {
   writeJsonFile(coverCachePath(game), {
     version: 4,
     updatedAt: new Date().toISOString(),
+    gameId: game.id,
     candidates
   });
 }
@@ -1691,15 +1704,29 @@ function lzacgArticlesFromCategory(html, query) {
   return articles;
 }
 
+const lzacgPageCache = new Map();
+
+async function fetchLzacgPage(url) {
+  const cached = lzacgPageCache.get(url);
+  if (cached && Date.now() - cached.cachedAt < 30 * 60 * 1000) return cached.promise;
+  const promise = withDomainLimit(url, 3, async () => {
+    const response = await fetchWithRetry(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
+      signal: AbortSignal.timeout(9000)
+    }, 1);
+    return response.ok ? response.text() : "";
+  });
+  lzacgPageCache.set(url, { cachedAt: Date.now(), promise });
+  promise.catch(() => lzacgPageCache.delete(url));
+  return promise;
+}
+
 async function searchLzacgArticles(query, categoryPageLimit = 1) {
   const all = [];
   try {
     const searchUrl = `https://lzacg.cc/?s=${encodeURIComponent(query)}`;
-    const response = await withDomainLimit(searchUrl, 3, () => fetchWithRetry(searchUrl, {
-      headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
-      signal: AbortSignal.timeout(9000)
-    }, 1));
-    if (response.ok) all.push(...lzacgArticlesFromSearch(await response.text(), query));
+    const html = await fetchLzacgPage(searchUrl);
+    if (html) all.push(...lzacgArticlesFromSearch(html, query));
   } catch (error) {
     console.warn("[cover] Lzacg search failed:", error.message?.slice(0, 80));
   }
@@ -1710,12 +1737,8 @@ async function searchLzacgArticles(query, categoryPageLimit = 1) {
   ];
   const settled = await Promise.allSettled(
     categoryPages.map(async (url) => {
-      const response = await withDomainLimit(url, 3, () => fetchWithRetry(url, {
-        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
-        signal: AbortSignal.timeout(9000)
-      }, 1));
-      if (!response.ok) return [];
-      return lzacgArticlesFromCategory(await response.text(), query);
+      const html = await fetchLzacgPage(url);
+      return html ? lzacgArticlesFromCategory(html, query) : [];
     })
   );
   for (const item of settled) {
@@ -1739,7 +1762,7 @@ async function lzacgCandidatesForArticle(game, article) {
     if (!response.ok) return [];
     const urls = lzacgImageUrlsFromArticle(await response.text(), article.url);
     const settled = await Promise.allSettled(
-      urls.slice(0, 4).map((url, index) =>
+      urls.slice(0, 6).map((url, index) =>
         downloadCandidate(game, url, "量子ACG", 132 + article.score * 26 - index * 6, `${article.title} 第 ${index + 1} 张图`)
       )
     );
@@ -1751,7 +1774,7 @@ async function lzacgCandidatesForArticle(game, article) {
 }
 
 async function findLzacgCandidates(game, options = {}) {
-  const baseQueries = rawTitleQueriesFor(game).slice(0, options.fast ? 4 : 6);
+  const baseQueries = rawTitleQueriesFor(game).slice(0, options.fast ? 6 : 8);
   const onlineQueries = [];
   if (!options.fast) {
     const vnSettled = await Promise.allSettled(baseQueries.slice(0, 4).map((query) => searchVndb(query)));
@@ -1764,8 +1787,8 @@ async function findLzacgCandidates(game, options = {}) {
   }
   const queries = Array.from(
     new Set([...baseQueries, ...onlineQueries].map(cleanText).filter((item) => !isGenericSearchText(item)).flatMap(expandSearchAlias))
-  ).slice(0, options.fast ? 4 : 8);
-  const searchSettled = await Promise.allSettled(queries.map((query) => searchLzacgArticles(query, options.fast ? 1 : 3)));
+  ).slice(0, options.fast ? 8 : 12);
+  const searchSettled = await Promise.allSettled(queries.map((query) => searchLzacgArticles(query, options.fast ? 6 : 10)));
   const articles = [];
   const seen = new Set();
   for (const item of searchSettled) {
@@ -1777,7 +1800,7 @@ async function findLzacgCandidates(game, options = {}) {
     }
   }
   const articleSettled = await Promise.allSettled(
-    articles.sort((a, b) => b.score - a.score).slice(0, 2).map((article) => lzacgCandidatesForArticle(game, article))
+    articles.sort((a, b) => b.score - a.score).slice(0, 3).map((article) => lzacgCandidatesForArticle(game, article))
   );
   return articleSettled.flatMap((item) => (item.status === "fulfilled" ? item.value : []));
 }
@@ -1885,7 +1908,7 @@ async function dlsiteCandidatesForProduct(game, article) {
 }
 
 async function findDlsiteCandidates(game) {
-  const queries = rawTitleQueriesFor(game).slice(0, 6);
+  const queries = rawTitleQueriesFor(game).slice(0, 4);
   const searchSettled = await Promise.allSettled(queries.map((query) => searchDlsiteArticles(query)));
   const articles = [];
   const seen = new Set();
@@ -1898,7 +1921,7 @@ async function findDlsiteCandidates(game) {
     }
   }
   const articleSettled = await Promise.allSettled(
-    articles.sort((a, b) => b.score - a.score).slice(0, 3).map((article) => dlsiteCandidatesForProduct(game, article))
+    articles.sort((a, b) => b.score - a.score).slice(0, 2).map((article) => dlsiteCandidatesForProduct(game, article))
   );
   return articleSettled.flatMap((item) => (item.status === "fulfilled" ? item.value : []));
 }
@@ -2036,7 +2059,7 @@ async function twoDFanCandidatesForSubject(game, subject) {
 }
 
 async function find2DFanCandidates(game) {
-  const queries = rawTitleQueriesFor(game).slice(0, 6);
+  const queries = rawTitleQueriesFor(game).slice(0, 4);
   const searchSettled = await Promise.allSettled(queries.map((query) => search2DFanSubjects(query)));
   const subjects = [];
   const seen = new Set();
@@ -2049,13 +2072,13 @@ async function find2DFanCandidates(game) {
     }
   }
   const subjectSettled = await Promise.allSettled(
-    subjects.sort((a, b) => b.score - a.score).slice(0, 3).map((subject) => twoDFanCandidatesForSubject(game, subject))
+    subjects.sort((a, b) => b.score - a.score).slice(0, 2).map((subject) => twoDFanCandidatesForSubject(game, subject))
   );
   return subjectSettled.flatMap((item) => (item.status === "fulfilled" ? item.value : []));
 }
 
 async function findVndbScreenshotCandidates(game) {
-  const queries = titleQueriesFor(game).slice(0, 4);
+  const queries = titleQueriesFor(game).slice(0, 6);
   const settled = await Promise.allSettled(queries.map((query) => searchVndb(query).then((results) => ({ query, results }))));
   const matches = [];
   for (const item of settled) {
@@ -2073,9 +2096,9 @@ async function findVndbScreenshotCandidates(game) {
   }
 
   const downloads = [];
-  for (const { vn, confidence } of Array.from(bestById.values()).slice(0, 1)) {
+  for (const { vn, confidence } of Array.from(bestById.values()).slice(0, 3)) {
     const urls = Array.from(new Set((vn.screenshots || []).flatMap((shot) => shot.url ? [shot.url] : []).filter(Boolean)));
-    for (const [index, url] of urls.slice(0, 6).entries()) {
+    for (const [index, url] of urls.slice(0, 10).entries()) {
       downloads.push(downloadCandidate(game, url, "VNDB截图", 116 + confidence * 22 - index * 2, `${vn.title || vn.id} / ${vn.id}`));
     }
   }
@@ -2085,7 +2108,7 @@ async function findVndbScreenshotCandidates(game) {
 }
 
   async function findVndbImageCandidates(game) {
-    const queries = titleQueriesFor(game).slice(0, 4);
+    const queries = titleQueriesFor(game).slice(0, 6);
     const settled = await Promise.allSettled(queries.map((query) => searchVndb(query).then((results) => ({ query, results }))));
     const downloads = [];
     const seen = new Set();
@@ -2098,7 +2121,7 @@ async function findVndbScreenshotCandidates(game) {
         downloads.push(downloadCandidate(game, vn.image.url, "VNDB封面", 62 + confidence * 12, `${vn.title || vn.id} / ${vn.id}`));
       }
     }
-    const results = await Promise.allSettled(downloads.slice(0, 4));
+    const results = await Promise.allSettled(downloads.slice(0, 6));
     return results.flatMap((item) => (item.status === "fulfilled" && item.value ? [item.value] : []));
   }
 
@@ -2211,14 +2234,11 @@ async function findVndbScreenshotCandidates(game) {
         if (!details) return [];
         const urls = [
           `https://cdn.cloudflare.steamstatic.com/steam/apps/${match.appid}/library_hero.jpg`,
-          `https://cdn.cloudflare.steamstatic.com/steam/apps/${match.appid}/capsule_616x353.jpg`,
-          `https://cdn.cloudflare.steamstatic.com/steam/apps/${match.appid}/header.jpg`,
-          details.header_image,
-          ...(details.screenshots || []).flatMap((shot) => [shot.path_full, shot.path_thumbnail])
+          ...(details.screenshots || []).map((shot) => shot.path_full)
         ].filter(Boolean);
         const candidates = [];
-        for (const [index, url] of Array.from(new Set(urls)).slice(0, 6).entries()) {
-          const isLibraryAsset = /library_hero|capsule_616x353|header\.jpg/i.test(url);
+        for (const [index, url] of Array.from(new Set(urls)).slice(0, 10).entries()) {
+          const isLibraryAsset = /library_hero/i.test(url);
           const weight = (isLibraryAsset ? 148 : 122) + match.confidence * 38 - index * 2;
           candidates.push(downloadCandidate(game, url, "Steam", weight, `${details.name || match.name} / Steam ${match.appid}`));
         }
@@ -2318,9 +2338,10 @@ async function bangumiOfficialLinks(query) {
 
 async function findCoverCandidates(game) {
   const cached = readCoverCandidateCache(game);
-  if (cached.length >= 3) return cached;
+  if (cached.length >= 16) return cached;
 
   const localCandidates = [
+    ...cached,
     existingCoverCandidate(game)
   ].filter(Boolean);
 
@@ -2346,13 +2367,14 @@ async function findCoverCandidates(game) {
 
   const strongCount = candidates.filter((item) => item.score >= 168 && item.width >= 1024).length;
   if (!process.env.COVER_QUIET) {
-    console.log(`[cover:${game.title.slice(0, 20)}] Phase 1 total: ${candidates.length} (strong: ${strongCount}) → Phase 2: ${candidates.length < 3 ? "triggered" : "skipped"}`);
+    console.log(`[cover:${game.title.slice(0, 20)}] Phase 1 total: ${candidates.length} (strong: ${strongCount}) → Phase 2: ${candidates.length < 16 ? "triggered" : "skipped"}`);
   }
-  if (candidates.length < 3) {
-    const slowLabels = ["VNDB(official)", "Lzacg(slow)"];
+  if (candidates.length < 16) {
+    const slowLabels = ["DLsite", "2DFan", "VNDB(official)"];
     const slowResults = await Promise.allSettled([
-      findVndbOfficialCandidates(game),
-      findLzacgCandidates(game, { fast: false })
+      findDlsiteCandidates(game),
+      find2DFanCandidates(game),
+      findVndbOfficialCandidates(game)
     ]);
     const slowGroups = slowResults.map((result) =>
       result.status === "fulfilled" && Array.isArray(result.value) ? result.value : []
