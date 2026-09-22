@@ -1706,9 +1706,10 @@ function lzacgArticlesFromCategory(html, query) {
 
 const lzacgPageCache = new Map();
 
-async function fetchLzacgPage(url) {
+async function fetchLzacgPage(url, forceRefresh = false) {
   const cached = lzacgPageCache.get(url);
-  if (cached && Date.now() - cached.cachedAt < 30 * 60 * 1000) return cached.promise;
+  if (!forceRefresh && cached && Date.now() - cached.cachedAt < 30 * 60 * 1000) return cached.promise;
+  if (forceRefresh) lzacgPageCache.delete(url);
   const promise = withDomainLimit(url, 3, async () => {
     const response = await fetchWithRetry(url, {
       headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" },
@@ -1717,15 +1718,18 @@ async function fetchLzacgPage(url) {
     return response.ok ? response.text() : "";
   });
   lzacgPageCache.set(url, { cachedAt: Date.now(), promise });
-  promise.catch(() => lzacgPageCache.delete(url));
+  promise.then((html) => {
+    // 网络环境切换或站点临时拒绝访问后，下一次搜索必须重新请求。
+    if (!html) lzacgPageCache.delete(url);
+  }, () => lzacgPageCache.delete(url));
   return promise;
 }
 
-async function searchLzacgArticles(query, categoryPageLimit = 1) {
+async function searchLzacgArticles(query, categoryPageLimit = 1, forceRefresh = false) {
   const all = [];
   try {
     const searchUrl = `https://lzacg.cc/?s=${encodeURIComponent(query)}`;
-    const html = await fetchLzacgPage(searchUrl);
+    const html = await fetchLzacgPage(searchUrl, forceRefresh);
     if (html) all.push(...lzacgArticlesFromSearch(html, query));
   } catch (error) {
     console.warn("[cover] Lzacg search failed:", error.message?.slice(0, 80));
@@ -1737,7 +1741,7 @@ async function searchLzacgArticles(query, categoryPageLimit = 1) {
   ];
   const settled = await Promise.allSettled(
     categoryPages.map(async (url) => {
-      const html = await fetchLzacgPage(url);
+      const html = await fetchLzacgPage(url, forceRefresh);
       return html ? lzacgArticlesFromCategory(html, query) : [];
     })
   );
@@ -1788,7 +1792,7 @@ async function findLzacgCandidates(game, options = {}) {
   const queries = Array.from(
     new Set([...baseQueries, ...onlineQueries].map(cleanText).filter((item) => !isGenericSearchText(item)).flatMap(expandSearchAlias))
   ).slice(0, options.fast ? 8 : 12);
-  const searchSettled = await Promise.allSettled(queries.map((query) => searchLzacgArticles(query, options.fast ? 6 : 10)));
+  const searchSettled = await Promise.allSettled(queries.map((query) => searchLzacgArticles(query, options.fast ? 6 : 10, options.forceRefresh)));
   const articles = [];
   const seen = new Set();
   for (const item of searchSettled) {
@@ -2348,7 +2352,7 @@ async function findCoverCandidates(game, forceRefresh = false) {
   const sourceLabels = ["Steam", "Lzacg", "VNDB(screenshot)", "VNDB(image)", "Bangumi"];
   const fastResults = await Promise.allSettled([
     findSteamCandidates(game),
-    findLzacgCandidates(game, { fast: true }),
+    findLzacgCandidates(game, { fast: true, forceRefresh }),
     findVndbScreenshotCandidates(game),
     findVndbImageCandidates(game),
     findBangumiCoverCandidates(game)
