@@ -11,7 +11,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
-  width: min(var(--side-sheet-width), 32vw);
+  width: clamp(360px, 34vw, var(--side-sheet-width));
   min-height: 0;
   padding: 60px 22px 22px;
   border: 1px solid var(--glass-border-strong);
@@ -44,6 +44,11 @@
   transition: transform 320ms var(--ease-out), opacity 280ms var(--ease-out);
   scrollbar-width: thin;
   scrollbar-color: rgba(200, 215, 235, 0.12) transparent;
+  scrollbar-gutter: stable;
+}
+
+.side-sheet > * {
+  flex-shrink: 0;
 }
 
 .side-sheet::-webkit-scrollbar {
@@ -524,6 +529,59 @@
   line-height: 1.8;
   color: var(--text-secondary);
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 1180px) {
+  .side-sheet {
+    top: 10px;
+    right: 10px;
+    bottom: 10px;
+    width: min(400px, calc(100vw - var(--rail-width) - 24px));
+    padding: 54px 18px 20px;
+  }
+
+  .playtime-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-height: 760px) {
+  .side-sheet {
+    top: 8px;
+    bottom: 8px;
+    gap: 10px;
+    padding: 48px 16px 18px;
+  }
+
+  .sheet-close {
+    top: 10px;
+    right: 10px;
+  }
+
+  .side-sheet h1 {
+    font-size: var(--text-lg);
+  }
+
+  .sheet-section,
+  .sheet-collapsible summary {
+    padding: 12px;
+  }
+
+  .sheet-collapsible .collapsible-body {
+    padding: 0 12px 12px;
+  }
+
+  .playtime-hero {
+    padding-bottom: 10px;
+  }
+
+  .playtime-hero strong {
+    font-size: 28px;
+  }
+
+  .sheet-description {
+    max-height: none;
+  }
 }
 
 /* ---- File path ---- */
