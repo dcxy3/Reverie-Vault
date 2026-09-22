@@ -5,6 +5,7 @@ import {
   Gamepad2,
   ImagePlus,
   Play,
+  RefreshCw,
   Search,
   Trash2,
   X
@@ -185,7 +186,22 @@ function App() {
         <div className="modal-backdrop">
           <section className="modal cover-picker">
             <div className="modal-header">
-              <h2>选择横版封面</h2>
+              <div className="cover-picker-heading">
+                <h2>选择横版封面</h2>
+                <button
+                  type="button"
+                  className="soft-button cover-retry-button"
+                  disabled={isFindingCovers || !isOnline}
+                  title={isOnline ? "重新从全部图片源查找" : "离线模式下不可用"}
+                  onClick={() => {
+                    const game = games.find((item) => item.id === lib.coverPickerGameId);
+                    if (game) void findCovers(game, true);
+                  }}
+                >
+                  <RefreshCw size={15} className={isFindingCovers ? "spin" : ""} />
+                  {isFindingCovers ? "寻找中" : "再次寻找"}
+                </button>
+              </div>
               <button className="icon-button" onClick={() => setIsCoverPickerOpen(false)}>
                 <X size={18} />
               </button>

@@ -1651,6 +1651,30 @@ button {
   width: min(1140px, 94vw);
 }
 
+.cover-picker-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cover-retry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  white-space: nowrap;
+}
+
+.cover-retry-button .spin {
+  animation: coverRetrySpin 0.9s linear infinite;
+}
+
+@keyframes coverRetrySpin {
+  to { transform: rotate(360deg); }
+}
+
 .metadata-picker {
   width: min(980px, 94vw);
 }

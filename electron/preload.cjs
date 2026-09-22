@@ -47,7 +47,7 @@ contextBridge.exposeInMainWorld("galLauncher", {
   enrichOnlineMetadata: (game) => ipcRenderer.invoke("game:enrichOnlineMetadata", game),
   searchMetadataCandidates: (game, keyword) => ipcRenderer.invoke("game:searchMetadataCandidates", game, keyword),
   applyMetadataCandidate: (game, candidate) => ipcRenderer.invoke("game:applyMetadataCandidate", game, candidate),
-  findCoverCandidates: (game) => ipcRenderer.invoke("game:findCoverCandidates", game),
+  findCoverCandidates: (game, forceRefresh = false) => ipcRenderer.invoke("game:findCoverCandidates", game, forceRefresh),
   lookupBangumiRating: (game) => ipcRenderer.invoke("game:lookupBangumiRating", game),
   readImageDataUrl: (path) => ipcRenderer.invoke("image:readDataUrl", path),
   sampleButtonPalette: (path) => ipcRenderer.invoke("image:sampleButtonPalette", path),

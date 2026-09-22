@@ -388,7 +388,7 @@ export function useLibrary() {
     }
   }
 
-  async function findCovers(game: Game) {
+  async function findCovers(game: Game, forceRefresh = false) {
     if (!navigator.onLine) {
       setNotice("当前处于离线模式，无法查找在线封面");
       return;
@@ -397,7 +397,7 @@ export function useLibrary() {
     setCoverCandidates([]);
     setNotice("正在查找横版封面候选");
     try {
-      const candidates = await window.galLauncher.findCoverCandidates(game);
+      const candidates = await window.galLauncher.findCoverCandidates(game, forceRefresh);
       setCoverCandidates(candidates);
       setCoverPickerGameId(game.id);
       setIsCoverPickerOpen(true);
@@ -570,6 +570,7 @@ export function useLibrary() {
     imageCache,
     coverCandidates,
     isCoverPickerOpen, setIsCoverPickerOpen,
+    coverPickerGameId,
     isFindingCovers,
     metadataCandidates,
     candidateGameId,

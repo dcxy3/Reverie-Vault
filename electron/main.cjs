@@ -2336,9 +2336,9 @@ async function bangumiOfficialLinks(query) {
   return Array.from(new Set(output));
 }
 
-async function findCoverCandidates(game) {
+async function findCoverCandidates(game, forceRefresh = false) {
   const cached = readCoverCandidateCache(game);
-  if (cached.length >= 16) return cached;
+  if (!forceRefresh && cached.length >= 16) return cached;
 
   const localCandidates = [
     ...cached,
@@ -2747,9 +2747,9 @@ ipcMain.handle("game:searchMetadataCandidates", async (_event, game, keyword) =>
 
 ipcMain.handle("game:applyMetadataCandidate", async (_event, game, candidate) => hydrateMetadataCandidate(game, candidate));
 
-ipcMain.handle("game:findCoverCandidates", async (_event, game) => {
+ipcMain.handle("game:findCoverCandidates", async (_event, game, forceRefresh = false) => {
   try {
-    return await findCoverCandidates(game);
+    return await findCoverCandidates(game, forceRefresh);
   } catch (error) {
     console.error("findCoverCandidates failed:", error);
     return [];

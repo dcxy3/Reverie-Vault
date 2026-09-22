@@ -171,7 +171,7 @@ export interface LauncherApi {
   enrichOnlineMetadata: (game: Game) => Promise<Partial<PickedLaunchFile> & { confidence?: number; source?: string; sourceId?: string }>;
   searchMetadataCandidates: (game: Game, keyword?: string) => Promise<MetadataCandidate[]>;
   applyMetadataCandidate: (game: Game, candidate: MetadataCandidate) => Promise<Partial<PickedLaunchFile> & { confidence?: number; source?: string; sourceId?: string }>;
-  findCoverCandidates: (game: Game) => Promise<CoverCandidate[]>;
+  findCoverCandidates: (game: Game, forceRefresh?: boolean) => Promise<CoverCandidate[]>;
   lookupBangumiRating: (game: Game) => Promise<Partial<Game>>;
   readImageDataUrl: (path: string) => Promise<string>;
   sampleButtonPalette: (path: string) => Promise<{ actionRgb: string; chromeRgb: string } | null>;
