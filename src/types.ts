@@ -144,7 +144,7 @@ export interface LauncherApi {
   pickReadingItems: (kind: ReadingItemKind) => Promise<PickedReadingItem[]>;
   readNovel: (item: ReadingItem) => Promise<ReadingTextDocument>;
   readManga: (item: ReadingItem) => Promise<ReadingMangaDocument>;
-  readMangaChapter: (item: ReadingItem, filePath: string) => Promise<ArrayBuffer>;
+  readMangaChapter: (item: ReadingItem, filePath: string) => Promise<string>;
   onReadingContentChanged: (callback: (payload: { itemId: string }) => void) => () => void;
   onAltKeyChanged: (callback: (payload: { pressed: boolean }) => void) => () => void;
   toggleFullscreen: () => Promise<boolean>;

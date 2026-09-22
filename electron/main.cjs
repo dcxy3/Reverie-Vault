@@ -1,9 +1,15 @@
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, safeStorage, session, shell } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, net, protocol, safeStorage, session, shell } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn, execFile, fork } = require("node:child_process");
 const { decodeTextBuffer } = require("./text-decoder.cjs");
+const { createPdfResponse } = require("./pdf-stream.cjs");
+
+protocol.registerSchemesAsPrivileged([{
+  scheme: "reverie-pdf",
+  privileges: { standard: true, secure: true, corsEnabled: true, supportFetchAPI: true, stream: true }
+}]);
 
 // Keep existing libraries and settings available after the visible product rename.
 const legacyUserDataPath = path.join(app.getPath("appData"), "gal-launcher");
@@ -15,6 +21,7 @@ app.setPath("userData", fs.existsSync(legacyUserDataPath) ? legacyUserDataPath :
   const activePlaySessions = new Map();
   const readingWatchers = new Map();
   const readingWatchTimers = new Map();
+  const mangaPdfTokens = new Map();
   let musicWorker = null;
   let musicRequestId = 0;
   const pendingMusicRequests = new Map();
@@ -193,6 +200,27 @@ async function configureProxy(proxyPort) {
   } catch (err) {
     console.warn("[proxy] 代理配置失败，使用直连:", err.message);
   }
+}
+
+function issueMangaPdfUrl(filePath) {
+  for (const [token, existingPath] of mangaPdfTokens) {
+    if (existingPath === filePath) return `reverie-pdf://reader/${token}`;
+  }
+  const token = crypto.randomUUID();
+  mangaPdfTokens.set(token, filePath);
+  while (mangaPdfTokens.size > 48) mangaPdfTokens.delete(mangaPdfTokens.keys().next().value);
+  return `reverie-pdf://reader/${token}`;
+}
+
+function registerMangaPdfProtocol() {
+  protocol.handle("reverie-pdf", (request) => {
+    const token = new URL(request.url).pathname.replace(/^\//, "");
+    const filePath = mangaPdfTokens.get(token);
+    if (!filePath || !fs.existsSync(filePath) || path.extname(filePath).toLowerCase() !== ".pdf") {
+      return new Response("PDF not found", { status: 404 });
+    }
+    return createPdfResponse(filePath, request);
+  });
 }
 
 function createWindow() {
@@ -2628,13 +2656,17 @@ function findPdfChapters(rootPath) {
 
 ipcMain.handle("reader:readManga", (_event, item) => {
   if (!item || item.kind !== "manga" || typeof item.filePath !== "string") throw new Error("The comic entry is invalid");
-  if (!fs.existsSync(item.filePath) || !fs.statSync(item.filePath).isDirectory()) throw new Error("The imported comic folder no longer exists");
-  const files = findPdfChapters(item.filePath);
+  if (!fs.existsSync(item.filePath)) throw new Error("The imported comic path no longer exists");
+  const stat = fs.statSync(item.filePath);
+  if (stat.isFile() && path.extname(item.filePath).toLowerCase() !== ".pdf") throw new Error("Only PDF comic files can be read");
+  const files = stat.isFile() ? [item.filePath] : findPdfChapters(item.filePath);
   if (!files.length) throw new Error("No PDF chapters were found in this folder");
   return {
     title: item.title,
     chapters: files.map((filePath) => ({
-      title: path.relative(item.filePath, filePath).replace(/\.pdf$/i, "").split(path.sep).join(" / "),
+      title: stat.isFile()
+        ? path.basename(filePath, path.extname(filePath))
+        : path.relative(item.filePath, filePath).replace(/\.pdf$/i, "").split(path.sep).join(" / "),
       filePath
     }))
   };
@@ -2644,34 +2676,34 @@ ipcMain.handle("reader:readMangaChapter", (_event, item, chapterPath) => {
   if (!item || item.kind !== "manga" || typeof item.filePath !== "string" || typeof chapterPath !== "string") throw new Error("The comic chapter is invalid");
   const rootPath = path.resolve(item.filePath);
   const resolvedChapter = path.resolve(chapterPath);
+  const rootIsFile = fs.existsSync(rootPath) && fs.statSync(rootPath).isFile();
   const relativePath = path.relative(rootPath, resolvedChapter);
-  if (relativePath.startsWith("..") || path.isAbsolute(relativePath) || path.extname(resolvedChapter).toLowerCase() !== ".pdf") throw new Error("The comic chapter path is invalid");
-  const data = fs.readFileSync(resolvedChapter);
-  return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  const outsideRoot = rootIsFile ? resolvedChapter !== rootPath : relativePath.startsWith("..") || path.isAbsolute(relativePath);
+  if (outsideRoot || path.extname(resolvedChapter).toLowerCase() !== ".pdf") throw new Error("The comic chapter path is invalid");
+  return issueMangaPdfUrl(resolvedChapter);
 });
 
 ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
   const isManga = kind === "manga";
-  let importFolder = isManga;
-  if (!isManga) {
-    const choice = await dialog.showMessageBox(mainWindow, {
-      type: "question",
-      title: "导入轻小说",
-      message: "请选择轻小说导入方式",
-      detail: "单个文件支持 TXT、Markdown；文件夹会递归识别分卷和章节。",
-      buttons: ["导入单个文件", "导入分卷文件夹", "取消"],
-      defaultId: 0,
-      cancelId: 2
-    });
-    if (choice.response === 2) return [];
-    importFolder = choice.response === 1;
-  }
+  const choice = await dialog.showMessageBox(mainWindow, {
+    type: "question",
+    title: isManga ? "导入漫画" : "导入轻小说",
+    message: isManga ? "请选择漫画导入方式" : "请选择轻小说导入方式",
+    detail: isManga
+      ? "可直接导入一个或多个 PDF；文件夹会递归识别其中的 PDF 分卷和章节。"
+      : "单个文件支持 TXT、Markdown；文件夹会递归识别分卷和章节。",
+    buttons: isManga ? ["导入单个 PDF", "导入漫画文件夹", "取消"] : ["导入单个文件", "导入分卷文件夹", "取消"],
+    defaultId: 0,
+    cancelId: 2
+  });
+  if (choice.response === 2) return [];
+  const importFolder = choice.response === 1;
   const result = await dialog.showOpenDialog(mainWindow, {
-    title: isManga ? "Import local comics" : "Import local light novels",
+    title: isManga ? "导入本地漫画" : "导入本地轻小说",
     properties: importFolder ? ["openDirectory"] : ["openFile", "multiSelections"],
     filters: isManga
       ? [
-          { name: "Comic files", extensions: ["cbz", "zip", "pdf", "png", "jpg", "jpeg", "webp"] },
+          { name: "PDF 漫画", extensions: ["pdf"] },
           { name: "All files", extensions: ["*"] }
         ]
       : [
@@ -2684,7 +2716,7 @@ ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
     title: importFolder ? path.basename(filePath) : path.basename(filePath, path.extname(filePath)),
     kind: isManga ? "manga" : "novel",
     filePath,
-    format: isManga ? "PDF 文件夹" : importFolder ? "TXT / Markdown 文件夹" : path.extname(filePath).replace(/^\./, "").toUpperCase() || "FILE"
+    format: isManga ? (importFolder ? "PDF 文件夹" : "PDF") : importFolder ? "TXT / Markdown 文件夹" : path.extname(filePath).replace(/^\./, "").toUpperCase() || "FILE"
   }));
 });
 
@@ -3062,6 +3094,7 @@ ipcMain.handle("game:launch", async (_event, game) => {
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  registerMangaPdfProtocol();
 
   // Proxy: only use if PROXY_PORT env var is set
   configureProxy(process.env.PROXY_PORT);

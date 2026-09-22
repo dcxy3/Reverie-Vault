@@ -29,6 +29,7 @@
     "dev": "concurrently -k \"vite --host 127.0.0.1\" \"wait-on tcp:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
     "build": "tsc && vite build",
     "test:encoding": "node --test electron/text-decoder.test.cjs",
+    "test:reader": "node --test electron/text-decoder.test.cjs electron/pdf-stream.test.cjs",
     "dist": "npm run build && electron-builder --win dir && node scripts/brand-windows-exe.cjs",
     "dist:portable": "npm run dist && electron-builder --prepackaged release/win-unpacked --win portable",
     "dist:installer": "npm run dist && electron-builder --prepackaged release/win-unpacked --win nsis",

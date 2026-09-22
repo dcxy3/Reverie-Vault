@@ -114,19 +114,16 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
       return;
     }
     let disposed = false;
-    let objectUrl = "";
     setMangaPdfUrl(null);
     setMangaPdfError("");
-    window.galLauncher.readMangaChapter(reader.item, page.pdfPath).then((data) => {
+    window.galLauncher.readMangaChapter(reader.item, page.pdfPath).then((url) => {
       if (disposed) return;
-      objectUrl = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
-      setMangaPdfUrl(objectUrl);
+      setMangaPdfUrl(url);
     }).catch((error) => {
       if (!disposed) setMangaPdfError(error instanceof Error ? error.message : "无法读取当前漫画章节。");
     });
     return () => {
       disposed = true;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [reader, pageIndex]);
 
