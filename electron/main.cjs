@@ -3,6 +3,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
 const { spawn, execFile, fork } = require("node:child_process");
+const { decodeTextBuffer } = require("./text-decoder.cjs");
 
 // Keep existing libraries and settings available after the visible product rename.
 const legacyUserDataPath = path.join(app.getPath("appData"), "gal-launcher");
@@ -622,15 +623,7 @@ function cleanText(value) {
 
 function readTextFile(filePath) {
   try {
-    const buffer = fs.readFileSync(filePath);
-    const utf8 = buffer.toString("utf8").replace(/^\uFEFF/, "");
-    const badChars = (utf8.match(/\uFFFD/g) || []).length;
-    if (badChars <= 2) return utf8;
-    try {
-      return new TextDecoder("shift_jis").decode(buffer).replace(/^\uFEFF/, "");
-    } catch {
-      return utf8;
-    }
+    return decodeTextBuffer(fs.readFileSync(filePath)).text;
   } catch {
     return "";
   }
@@ -2592,8 +2585,9 @@ ipcMain.handle("reader:readNovel", (_event, item) => {
   const decodeText = (filePath) => {
     const data = fs.readFileSync(filePath);
     if (data.byteLength > 8 * 1024 * 1024) throw new Error(`The chapter is too large: ${path.basename(filePath)}`);
-    const utf8 = data.toString("utf8");
-    return utf8.includes("�") ? new TextDecoder("gb18030").decode(data) : utf8;
+    const decoded = decodeTextBuffer(data);
+    console.log(`[reader] ${path.basename(filePath)} decoded as ${decoded.encoding}`);
+    return decoded.text;
   };
   if (stat.isFile()) {
     if (![".txt", ".md", ".markdown"].includes(path.extname(item.filePath).toLowerCase())) throw new Error("Only TXT and Markdown light novels can be read");
