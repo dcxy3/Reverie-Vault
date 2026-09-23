@@ -1,11 +1,61 @@
 import { ChevronLeft, ChevronRight, Maximize2, Minus, Plus } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
 import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { ReadingMangaChapter } from "../types";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+
+type PageSize = { width: number; height: number };
+
+function PdfCanvasPage({ document, index, width, onSize }: {
+  document: PDFDocumentProxy;
+  index: number;
+  width: number;
+  onSize: (index: number, size: PageSize) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [message, setMessage] = useState("正在加载…");
+
+  useEffect(() => {
+    let disposed = false;
+    let renderTask: RenderTask | null = null;
+    setMessage("正在加载…");
+    document.getPage(index + 1).then((page) => {
+      if (disposed || !canvasRef.current) return;
+      const base = page.getViewport({ scale: 1 });
+      onSize(index, { width: base.width, height: base.height });
+      const viewport = page.getViewport({ scale: width / base.width });
+      const outputScale = Math.min(window.devicePixelRatio || 1, 1.5);
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d", { alpha: false });
+      if (!context) throw new Error("Canvas is unavailable");
+      canvas.width = Math.max(1, Math.round(viewport.width * outputScale));
+      canvas.height = Math.max(1, Math.round(viewport.height * outputScale));
+      renderTask = page.render({
+        canvas,
+        canvasContext: context,
+        viewport,
+        transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0]
+      });
+      return renderTask.promise;
+    }).then(() => {
+      if (!disposed) setMessage("");
+    }).catch((error) => {
+      if (!disposed && error?.name !== "RenderingCancelledException") setMessage(error instanceof Error ? `加载失败：${error.message}` : "加载失败");
+    });
+    return () => {
+      disposed = true;
+      renderTask?.cancel();
+    };
+  }, [document, index, width, onSize]);
+
+  return <>
+    <canvas className="manga-page-canvas" ref={canvasRef} />
+    {message && <span className="manga-page-placeholder">{message}</span>}
+  </>;
+}
 
 export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapter, onNextChapter }: {
   chapter: ReadingMangaChapter;
@@ -14,48 +64,46 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
   onPreviousChapter: () => void;
   onNextChapter: () => void;
 }) {
-  const viewportRef = useRef<HTMLDivElement | null>(null);
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const wheelLockRef = useRef(0);
+  const pageRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const activePageRef = useRef(pageIndex);
+  const scrollFrameRef = useRef<number | null>(null);
+  const positionedRef = useRef(false);
+  const zoomAnchorRef = useRef<{ index: number; fraction: number } | null>(null);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
-  const [pageCount, setPageCount] = useState(chapter.pages?.length || 1);
+  const [pageCount, setPageCount] = useState(chapter.kind === "pdf" ? 0 : Math.max(1, chapter.pages?.length || 0));
+  const [defaultSize, setDefaultSize] = useState<PageSize>({ width: 700, height: 1000 });
+  const [pageSizes, setPageSizes] = useState<Record<number, PageSize>>({});
+  const [nearbyPages, setNearbyPages] = useState<Set<number>>(() => new Set([pageIndex]));
+  const [stageWidth, setStageWidth] = useState(0);
   const [zoom, setZoom] = useState(100);
-  const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
-  const [imageSize, setImageSize] = useState<{ url: string; width: number; height: number } | null>(null);
-  const [status, setStatus] = useState("正在打开漫画…");
-  const imagePage = chapter.kind === "images" ? chapter.pages?.[pageIndex] : null;
-  const currentImageSize = imageSize?.url === imagePage?.url ? imageSize : null;
+  const [status, setStatus] = useState(chapter.kind === "pdf" ? "正在读取 PDF…" : "");
+  const ready = chapter.kind === "images" || Boolean(pdf);
+  const pageWidth = Math.max(1, stageWidth - 36) * zoom / 100;
 
-  useEffect(() => { stageRef.current?.scrollTo(0, 0); }, [pageIndex]);
+  useEffect(() => { activePageRef.current = pageIndex; }, [pageIndex]);
 
   useEffect(() => {
-    const node = viewportRef.current;
-    if (!node) return;
-    const update = () => setViewportSize({ width: node.clientWidth, height: node.clientHeight });
+    const stage = stageRef.current;
+    if (!stage) return;
+    const update = () => setStageWidth(stage.clientWidth);
     update();
     const observer = new ResizeObserver(update);
-    observer.observe(node);
+    observer.observe(stage);
     return () => observer.disconnect();
   }, []);
 
   useEffect(() => {
+    if (chapter.kind !== "pdf" || !chapter.resourceUrl) return;
     let disposed = false;
-    let loadingTask: PDFDocumentLoadingTask | null = null;
-    setPdf(null);
-    setZoom(100);
-    setStatus(chapter.kind === "pdf" ? "正在按需读取 PDF…" : "");
-    if (chapter.kind !== "pdf" || !chapter.resourceUrl) {
-      const count = Math.max(1, chapter.pages?.length || 1);
-      setPageCount(count);
-      if (pageIndex >= count) onPageChange(count - 1);
-      return;
-    }
-    loadingTask = getDocument({ url: chapter.resourceUrl, rangeChunkSize: 128 * 1024 });
-    loadingTask.promise.then((document) => {
+    const task: PDFDocumentLoadingTask = getDocument({ url: chapter.resourceUrl, rangeChunkSize: 128 * 1024 });
+    task.promise.then(async (document) => {
+      const first = await document.getPage(1);
       if (disposed) return;
-      setPdf(document);
+      const viewport = first.getViewport({ scale: 1 });
+      setDefaultSize({ width: viewport.width, height: viewport.height });
       setPageCount(document.numPages);
+      setPdf(document);
       setStatus("");
       if (pageIndex >= document.numPages) onPageChange(document.numPages - 1);
     }).catch((error) => {
@@ -63,105 +111,152 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
     });
     return () => {
       disposed = true;
-      if (loadingTask) void loadingTask.destroy();
+      void task.destroy();
     };
   }, [chapter]);
 
-  useEffect(() => {
-    if (!pdf || !canvasRef.current || !viewportSize.width || !viewportSize.height) return;
-    let disposed = false;
-    let renderTask: RenderTask | null = null;
-    setStatus("正在渲染当前页…");
-    pdf.getPage(Math.min(pageIndex + 1, pdf.numPages)).then((page) => {
-      if (disposed || !canvasRef.current) return;
-      const baseViewport = page.getViewport({ scale: 1 });
-      const fitScale = Math.min(
-        Math.max(1, viewportSize.width - 36) / baseViewport.width,
-        Math.max(1, viewportSize.height - 88) / baseViewport.height
-      );
-      const viewport = page.getViewport({ scale: fitScale * zoom / 100 });
-      const outputScale = Math.min(window.devicePixelRatio || 1, 2);
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d", { alpha: false });
-      if (!context) throw new Error("Canvas is unavailable");
-      canvas.width = Math.max(1, Math.floor(viewport.width * outputScale));
-      canvas.height = Math.max(1, Math.floor(viewport.height * outputScale));
-      canvas.style.width = `${Math.floor(viewport.width)}px`;
-      canvas.style.height = `${Math.floor(viewport.height)}px`;
-      renderTask = page.render({ canvas, canvasContext: context, viewport, transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0] });
-      return renderTask.promise;
-    }).then(() => {
-      if (!disposed) setStatus("");
-    }).catch((error) => {
-      if (!disposed && error?.name !== "RenderingCancelledException") setStatus(error instanceof Error ? `页面渲染失败：${error.message}` : "页面渲染失败");
+  const savePageSize = useCallback((index: number, size: PageSize) => {
+    setPageSizes((current) => {
+      const previous = current[index];
+      if (previous && Math.abs(previous.width - size.width) < 0.1 && Math.abs(previous.height - size.height) < 0.1) return current;
+      return { ...current, [index]: size };
     });
-    return () => {
-      disposed = true;
-      renderTask?.cancel();
-    };
-  }, [pdf, pageIndex, viewportSize, zoom]);
+  }, []);
 
-  const goPrevious = () => pageIndex > 0 ? onPageChange(pageIndex - 1) : onPreviousChapter();
-  const goNext = () => pageIndex < pageCount - 1 ? onPageChange(pageIndex + 1) : onNextChapter();
+  useLayoutEffect(() => {
+    if (!ready || !stageWidth || positionedRef.current) return;
+    const stage = stageRef.current;
+    const target = pageRefs.current[Math.min(pageIndex, pageCount - 1)];
+    if (!stage || !target) return;
+    stage.scrollTop = target.offsetTop;
+    positionedRef.current = true;
+  }, [ready, stageWidth, pageCount, pageIndex]);
+
+  useLayoutEffect(() => {
+    const anchor = zoomAnchorRef.current;
+    if (!anchor) return;
+    const stage = stageRef.current;
+    const target = pageRefs.current[anchor.index];
+    if (stage && target) stage.scrollTop = target.offsetTop + target.offsetHeight * anchor.fraction;
+    zoomAnchorRef.current = null;
+  }, [zoom]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const stage = stageRef.current;
+    if (!stage) return;
+    const observer = new IntersectionObserver((entries) => {
+      setNearbyPages((current) => {
+        const next = new Set(current);
+        for (const entry of entries) {
+          const index = Number((entry.target as HTMLElement).dataset.mangaPage);
+          if (entry.isIntersecting) next.add(index);
+          else next.delete(index);
+        }
+        return next.size === current.size && [...next].every((index) => current.has(index)) ? current : next;
+      });
+    }, { root: stage, rootMargin: "120% 0px", threshold: 0 });
+    for (const element of pageRefs.current.slice(0, pageCount)) if (element) observer.observe(element);
+    return () => observer.disconnect();
+  }, [ready, pageCount]);
+
+  useEffect(() => () => {
+    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+  }, []);
+
+  const updateActivePage = () => {
+    const stage = stageRef.current;
+    if (!stage || !positionedRef.current) return;
+    const position = stage.scrollTop + Math.min(120, stage.clientHeight * 0.2);
+    let low = 0;
+    let high = pageCount - 1;
+    while (low < high) {
+      const middle = Math.floor((low + high) / 2);
+      const element = pageRefs.current[middle];
+      if (element && element.offsetTop + element.offsetHeight <= position) low = middle + 1;
+      else high = middle;
+    }
+    if (low !== activePageRef.current) {
+      activePageRef.current = low;
+      onPageChange(low);
+    }
+  };
+
+  const scrollToPage = (index: number) => {
+    if (!ready) return;
+    if (index < 0) { onPreviousChapter(); return; }
+    if (index >= pageCount) { onNextChapter(); return; }
+    const target = pageRefs.current[index];
+    if (!target) return;
+    activePageRef.current = index;
+    onPageChange(index);
+    if (stageRef.current) stageRef.current.scrollTop = target.offsetTop;
+  };
+
+  const changeZoom = (next: number) => {
+    if (next === zoom) return;
+    const stage = stageRef.current;
+    const index = activePageRef.current;
+    const target = pageRefs.current[index];
+    if (stage && target) zoomAnchorRef.current = { index, fraction: (stage.scrollTop - target.offsetTop) / Math.max(1, target.offsetHeight) };
+    setZoom(next);
+  };
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "ArrowLeft") { event.preventDefault(); goPrevious(); }
-      if (event.key === "ArrowRight") { event.preventDefault(); goNext(); }
-      if (!["PageUp", "PageDown", " "].includes(event.key)) return;
-      event.preventDefault();
-      const stage = stageRef.current;
-      if (stage && (stage.scrollHeight > stage.clientHeight + 2 || stage.scrollWidth > stage.clientWidth + 2)) {
-        const amount = (event.key === "PageUp" ? -1 : 1) * stage.clientHeight * 0.8;
-        if (stage.scrollHeight > stage.clientHeight + 2) stage.scrollBy({ top: amount, behavior: "smooth" });
-        else stage.scrollBy({ left: amount, behavior: "smooth" });
-      } else if (event.key === "PageUp") goPrevious();
-      else goNext();
+      if (event.key === "ArrowLeft") { event.preventDefault(); scrollToPage(activePageRef.current - 1); }
+      if (event.key === "ArrowRight") { event.preventDefault(); scrollToPage(activePageRef.current + 1); }
+      if (["PageUp", "PageDown", " "].includes(event.key)) {
+        event.preventDefault();
+        stageRef.current?.scrollBy({ top: (event.key === "PageUp" ? -1 : 1) * (stageRef.current.clientHeight * 0.8), behavior: "smooth" });
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [pageIndex, pageCount]);
+  }, [pageCount]);
 
-  const imageFitScale = currentImageSize ? Math.min(
-    1,
-    Math.max(1, viewportSize.width - 36) / currentImageSize.width,
-    Math.max(1, viewportSize.height - 88) / currentImageSize.height
-  ) : 1;
-
-  return <div
-    className="manga-page-viewport"
-    ref={viewportRef}
-    onWheel={(event) => {
-      if (status || (chapter.kind === "images" && !currentImageSize)) return;
-      if ((event.target as Element).closest(".manga-reader-controls")) return;
-      const stage = stageRef.current;
-      if (stage && (stage.scrollHeight > stage.clientHeight + 2 || stage.scrollWidth > stage.clientWidth + 2)) {
-        if (stage.scrollWidth > stage.clientWidth + 2 && (event.shiftKey || stage.scrollHeight <= stage.clientHeight + 2)) {
-          event.preventDefault();
-          stage.scrollLeft += event.deltaY;
-        }
-        return;
-      }
-      if (Math.abs(event.deltaY) < 10 || Date.now() < wheelLockRef.current) return;
-      event.preventDefault();
-      wheelLockRef.current = Date.now() + 320;
-      if (event.deltaY > 0) goNext(); else goPrevious();
-    }}
-  >
-    <div className="manga-page-stage" ref={stageRef}>
-      {chapter.kind === "pdf" && <canvas ref={canvasRef} className="manga-page-canvas" />}
-      {imagePage && <img className="manga-page-image" src={imagePage.url} alt={imagePage.title} onLoad={(event) => setImageSize({ url: imagePage.url, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} style={currentImageSize ? { width: currentImageSize.width * imageFitScale * zoom / 100, height: currentImageSize.height * imageFitScale * zoom / 100 } : undefined} />}
+  return <div className="manga-page-viewport">
+    <div className="manga-page-stage" ref={stageRef} onScroll={() => {
+      if (scrollFrameRef.current !== null) return;
+      scrollFrameRef.current = window.requestAnimationFrame(() => {
+        scrollFrameRef.current = null;
+        updateActivePage();
+      });
+    }}>
+      {ready && Array.from({ length: pageCount }, (_, index) => {
+        const size = pageSizes[index] || defaultSize;
+        const height = Math.max(1, pageWidth * size.height / size.width);
+        const isNearby = nearbyPages.has(index);
+        return <div
+          className="manga-continuous-page"
+          data-manga-page={index}
+          key={index}
+          ref={(node) => { pageRefs.current[index] = node; }}
+          style={{ width: pageWidth, height }}
+          aria-label={`第 ${index + 1} 页`}
+        >
+          {isNearby && (chapter.kind === "pdf" && pdf
+            ? <PdfCanvasPage document={pdf} index={index} width={pageWidth} onSize={savePageSize} />
+            : chapter.pages?.[index] && <img
+                className="manga-page-image"
+                src={chapter.pages[index].url}
+                alt={chapter.pages[index].title}
+                draggable={false}
+                onLoad={(event) => savePageSize(index, { width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
+              />)}
+        </div>;
+      })}
       {status && <div className="manga-page-status">{status}</div>}
     </div>
     <div className="manga-reader-controls">
-      <button type="button" aria-label="上一页" onClick={goPrevious}><ChevronLeft size={18} /></button>
-      <span>第 {pageIndex + 1} / {pageCount} 页</span>
-      <button type="button" aria-label="下一页" onClick={goNext}><ChevronRight size={18} /></button>
+      <button type="button" aria-label="上一页" disabled={!ready} onClick={() => scrollToPage(activePageRef.current - 1)}><ChevronLeft size={18} /></button>
+      <span>{ready ? `连续阅读 · 第 ${pageIndex + 1} / ${pageCount} 页` : "连续阅读 · 正在读取…"}</span>
+      <button type="button" aria-label="下一页" disabled={!ready} onClick={() => scrollToPage(activePageRef.current + 1)}><ChevronRight size={18} /></button>
       <i />
-      <button type="button" aria-label="缩小" onClick={() => setZoom((value) => Math.max(50, value - 10))}><Minus size={16} /></button>
+      <button type="button" aria-label="缩小" onClick={() => changeZoom(Math.max(50, zoom - 10))}><Minus size={16} /></button>
       <span>{zoom}%</span>
-      <button type="button" aria-label="放大" onClick={() => setZoom((value) => Math.min(200, value + 10))}><Plus size={16} /></button>
-      <button type="button" aria-label="适应窗口" title="适应窗口" onClick={() => setZoom(100)}><Maximize2 size={16} /></button>
+      <button type="button" aria-label="放大" onClick={() => changeZoom(Math.min(200, zoom + 10))}><Plus size={16} /></button>
+      <button type="button" aria-label="适应宽度" title="适应宽度" onClick={() => changeZoom(100)}><Maximize2 size={16} /></button>
     </div>
   </div>;
 }
