@@ -65,6 +65,8 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   const [mangaPageIndex, setMangaPageIndex] = useState(0);
   const [selectedItem, setSelectedItem] = useState<ReadingItem | null>(null);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [draftTitle, setDraftTitle] = useState("");
   const [readingStartedAt, setReadingStartedAt] = useState<number | null>(null);
   const [coverCandidates, setCoverCandidates] = useState<ReadingCoverCandidate[]>([]);
   const [isFindingCovers, setIsFindingCovers] = useState(false);
@@ -202,7 +204,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
             const Icon = item.kind === "manga" ? Image : FileText;
             return <button className={`local-shelf-card ${selectedItem?.id === item.id ? "selected" : ""}`} data-reading-item-id={item.id} key={item.id} type="button" onClick={() => {
               if (selectedItem?.id === item.id) void openReader(item);
-              else setSelectedItem(item);
+              else { setSelectedItem(item); setIsRenaming(false); }
             }} title={item.title}
               onMouseMove={(event) => {
                 const card = event.currentTarget;
@@ -220,7 +222,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
 
       {selectedItem && (
         <div className="reading-launch-actions">
-          <button className="reading-settings-button" type="button" onClick={() => setIsInfoOpen(true)} aria-label="阅读设置"><SlidersHorizontal size={20} /></button>
+          <button className="reading-settings-button" type="button" onClick={() => { setIsRenaming(false); setIsInfoOpen(true); }} aria-label="阅读设置"><SlidersHorizontal size={20} /></button>
         </div>
       )}
 
@@ -237,10 +239,20 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
             setIsFindingCovers(false);
           }}>{!isOnline ? "离线模式：无法查找" : isFindingCovers ? "正在查找封面…" : "查找在线封面"}</button>
           <button className="reading-cover-search" type="button" onClick={async () => { const path = await window.galLauncher.pickImage(); if (path) onSetLocalCover(selectedItem.id, path); }}><ImagePlus size={15} />上传本地封面</button>
-          <button className="reading-cover-search" type="button" onClick={() => {
-            const nextTitle = window.prompt("请输入新的作品名称", selectedItem.title);
-            if (nextTitle?.trim()) onRename(selectedItem.id, nextTitle);
-          }}><Pencil size={15} />更改名称</button></div>
+          <button className="reading-cover-search" type="button" onClick={() => { setDraftTitle(selectedItem.title); setIsRenaming(true); }}><Pencil size={15} />更改名称</button></div>
+          {isRenaming && <form className="reading-rename-form" onSubmit={(event) => {
+            event.preventDefault();
+            const title = draftTitle.trim();
+            if (!title) return;
+            onRename(selectedItem.id, title);
+            setSelectedItem({ ...selectedItem, title });
+            setCoverCandidates([]);
+            setIsRenaming(false);
+          }}>
+            <label htmlFor="reading-rename-title">作品名称</label>
+            <input id="reading-rename-title" autoFocus maxLength={200} value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} onKeyDown={(event) => event.stopPropagation()} />
+            <div><button type="submit" disabled={!draftTitle.trim()}>保存名称</button><button type="button" onClick={() => setIsRenaming(false)}>取消</button></div>
+          </form>}
           {coverCandidates.length > 0 && <div className="reading-cover-candidates">{coverCandidates.map((candidate) => <button type="button" key={candidate.id} onClick={() => { onSetCover(selectedItem.id, candidate.imageUrl, candidate.source); setCoverCandidates([]); }}><ResilientImage src={candidate.imageUrl} alt="" fallback={<span className="cover-missing-state"><ImageOff size={20} /><b>封面丢失了喵</b></span>} /><span>{candidate.source}</span></button>)}</div>}
           <dl>
             <div><dt>格式</dt><dd>{selectedItem.format}</dd></div>

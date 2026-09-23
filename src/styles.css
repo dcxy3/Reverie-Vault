@@ -2423,6 +2423,12 @@ textarea:focus-visible {
 .reading-cover-search { margin-top: 18px; padding: 9px 11px; border: 1px solid rgba(185, 228, 255, 0.42); border-radius: 7px; color: #f3fbff; background: rgba(56, 122, 158, 0.38); font-size: 12px; font-weight: 700; }
 .reading-cover-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .reading-cover-actions .reading-cover-search { display: inline-flex; align-items: center; gap: 6px; margin-top: 0; }
+.reading-rename-form { display: grid; gap: 9px; margin-top: 14px; }
+.reading-rename-form label { color: rgba(237, 248, 255, 0.78); font-size: 12px; }
+.reading-rename-form input { width: 100%; padding: 9px 11px; border: 1px solid rgba(185, 228, 255, 0.42); border-radius: 7px; color: #fff; background: rgba(5, 20, 33, 0.72); }
+.reading-rename-form > div { display: flex; gap: 8px; }
+.reading-rename-form button { padding: 8px 12px; border: 1px solid rgba(185, 228, 255, 0.42); border-radius: 7px; color: #f3fbff; background: rgba(56, 122, 158, 0.38); font-size: 12px; }
+.reading-rename-form button:disabled { opacity: 0.5; cursor: not-allowed; }
 .reading-cover-candidates { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; max-height: 250px; overflow-y: auto; }
 .reading-cover-candidates button { position: relative; overflow: hidden; aspect-ratio: 2 / 3; border-radius: 5px; background: rgba(0,0,0,.25); }
 .reading-cover-candidates img, .local-shelf-cover img { width: 100%; height: 100%; object-fit: cover; }
@@ -2689,8 +2695,7 @@ textarea:focus-visible {
 .manga-page-stage {
   position: absolute;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
   padding: 16px 18px 72px;
   overflow: auto;
 }
@@ -2698,6 +2703,8 @@ textarea:focus-visible {
 .manga-page-canvas,
 .manga-page-image {
   display: block;
+  flex: none;
+  margin: auto;
   max-width: none;
   max-height: none;
   border-radius: 3px;
@@ -2708,11 +2715,20 @@ textarea:focus-visible {
 .manga-page-image {
   width: auto;
   height: auto;
-  max-width: calc(100vw - 104px);
-  max-height: calc(100vh - 104px);
+  max-width: none;
+  max-height: none;
   object-fit: contain;
-  transform-origin: center;
-  transition: transform 150ms ease-out;
+}
+
+.manga-page-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: rgba(240, 249, 255, 0.9);
+  background: rgba(8, 17, 25, 0.72);
+  pointer-events: none;
 }
 
 .local-reader-pdf-state {

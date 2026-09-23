@@ -15,13 +15,19 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
   onNextChapter: () => void;
 }) {
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const wheelLockRef = useRef(0);
   const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
   const [pageCount, setPageCount] = useState(chapter.pages?.length || 1);
   const [zoom, setZoom] = useState(100);
   const [viewportSize, setViewportSize] = useState({ width: 0, height: 0 });
+  const [imageSize, setImageSize] = useState<{ url: string; width: number; height: number } | null>(null);
   const [status, setStatus] = useState("正在打开漫画…");
+  const imagePage = chapter.kind === "images" ? chapter.pages?.[pageIndex] : null;
+  const currentImageSize = imageSize?.url === imagePage?.url ? imageSize : null;
+
+  useEffect(() => { stageRef.current?.scrollTo(0, 0); }, [pageIndex]);
 
   useEffect(() => {
     const node = viewportRef.current;
@@ -70,8 +76,8 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
       if (disposed || !canvasRef.current) return;
       const baseViewport = page.getViewport({ scale: 1 });
       const fitScale = Math.min(
-        Math.max(0.1, (viewportSize.width - 36) / baseViewport.width),
-        Math.max(0.1, (viewportSize.height - 96) / baseViewport.height)
+        Math.max(1, viewportSize.width - 36) / baseViewport.width,
+        Math.max(1, viewportSize.height - 88) / baseViewport.height
       );
       const viewport = page.getViewport({ scale: fitScale * zoom / 100 });
       const outputScale = Math.min(window.devicePixelRatio || 1, 2);
@@ -100,29 +106,52 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (["ArrowLeft", "PageUp"].includes(event.key)) { event.preventDefault(); goPrevious(); }
-      if (["ArrowRight", "PageDown", " "].includes(event.key)) { event.preventDefault(); goNext(); }
+      if (event.key === "ArrowLeft") { event.preventDefault(); goPrevious(); }
+      if (event.key === "ArrowRight") { event.preventDefault(); goNext(); }
+      if (!["PageUp", "PageDown", " "].includes(event.key)) return;
+      event.preventDefault();
+      const stage = stageRef.current;
+      if (stage && (stage.scrollHeight > stage.clientHeight + 2 || stage.scrollWidth > stage.clientWidth + 2)) {
+        const amount = (event.key === "PageUp" ? -1 : 1) * stage.clientHeight * 0.8;
+        if (stage.scrollHeight > stage.clientHeight + 2) stage.scrollBy({ top: amount, behavior: "smooth" });
+        else stage.scrollBy({ left: amount, behavior: "smooth" });
+      } else if (event.key === "PageUp") goPrevious();
+      else goNext();
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [pageIndex, pageCount]);
 
-  const imagePage = chapter.kind === "images" ? chapter.pages?.[pageIndex] : null;
+  const imageFitScale = currentImageSize ? Math.min(
+    1,
+    Math.max(1, viewportSize.width - 36) / currentImageSize.width,
+    Math.max(1, viewportSize.height - 88) / currentImageSize.height
+  ) : 1;
 
   return <div
     className="manga-page-viewport"
     ref={viewportRef}
     onWheel={(event) => {
+      if (status || (chapter.kind === "images" && !currentImageSize)) return;
+      if ((event.target as Element).closest(".manga-reader-controls")) return;
+      const stage = stageRef.current;
+      if (stage && (stage.scrollHeight > stage.clientHeight + 2 || stage.scrollWidth > stage.clientWidth + 2)) {
+        if (stage.scrollWidth > stage.clientWidth + 2 && (event.shiftKey || stage.scrollHeight <= stage.clientHeight + 2)) {
+          event.preventDefault();
+          stage.scrollLeft += event.deltaY;
+        }
+        return;
+      }
       if (Math.abs(event.deltaY) < 10 || Date.now() < wheelLockRef.current) return;
       event.preventDefault();
       wheelLockRef.current = Date.now() + 320;
       if (event.deltaY > 0) goNext(); else goPrevious();
     }}
   >
-    <div className="manga-page-stage">
+    <div className="manga-page-stage" ref={stageRef}>
       {chapter.kind === "pdf" && <canvas ref={canvasRef} className="manga-page-canvas" />}
-      {imagePage && <img className="manga-page-image" src={imagePage.url} alt={imagePage.title} style={{ transform: `scale(${zoom / 100})` }} />}
-      {status && <div className="local-reader-pdf-state">{status}</div>}
+      {imagePage && <img className="manga-page-image" src={imagePage.url} alt={imagePage.title} onLoad={(event) => setImageSize({ url: imagePage.url, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} style={currentImageSize ? { width: currentImageSize.width * imageFitScale * zoom / 100, height: currentImageSize.height * imageFitScale * zoom / 100 } : undefined} />}
+      {status && <div className="manga-page-status">{status}</div>}
     </div>
     <div className="manga-reader-controls">
       <button type="button" aria-label="上一页" onClick={goPrevious}><ChevronLeft size={18} /></button>
