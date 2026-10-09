@@ -228,9 +228,9 @@ export function CinemaLayout({ lib }: { lib: LibraryController }) {
 
       <div className="rail-reveal" aria-hidden="true" />
       <aside className={`rail ${isChromePinned ? "is-pinned" : ""}`}>
-        <div className="rail-logo">
+        <button type="button" className="rail-logo" title="重播开屏动画" aria-label="重播开屏动画" onClick={() => window.dispatchEvent(new Event("reverie:replay-startup"))}>
           <img src={reverieVaultIcon} alt="Reverie Vault" />
-        </div>
+        </button>
         <button className={viewMode === "library" && statusFilter === "全部" ? "rail-button active" : "rail-button"} aria-label="全部游戏" onClick={() => { setViewMode("library"); setStatusFilter("全部"); }}>
           <Home size={20} />
         </button>

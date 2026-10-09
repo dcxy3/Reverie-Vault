@@ -15,6 +15,7 @@ import { statuses } from "./utils";
 import { useLibrary } from "./useLibrary";
 import { SideSheet } from "./components/SideSheet";
 import { CinemaLayout } from "./layouts/CinemaLayout";
+import { StartupExperience } from "./components/StartupExperience";
 import { ResilientImage, useOnlineStatus } from "./network";
 import "./styles.css";
 
@@ -306,6 +307,6 @@ function App() {
 
 createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <StartupExperience><App /></StartupExperience>
   </React.StrictMode>
 );

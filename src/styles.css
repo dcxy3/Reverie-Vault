@@ -247,6 +247,8 @@ button {
 }
 
 .rail-logo {
+  padding: 0;
+  cursor: pointer;
   display: grid;
   place-items: center;
   width: 38px;

@@ -18,6 +18,10 @@ const { createFixtures, zip } = require("./reader-fixtures.cjs");
     page.on("pageerror", error => { errors.push(error.message); console.error("RENDERER:", error.message); });
     page.on("console", message => { if (message.type() === "error") console.error("CONSOLE:", message.text()); });
     await page.waitForSelector("#root > *");
+    if (await page.locator(".startup-film").count()) {
+      await page.keyboard.press("Escape");
+      await page.locator(".startup-film").waitFor({ state: "detached" });
+    }
     await page.evaluate(async () => {
       const React = await import("/node_modules/.vite/deps/react.js");
       const DOM = await import("/node_modules/.vite/deps/react-dom_client.js");
