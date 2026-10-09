@@ -1,13 +1,14 @@
 import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImageOff, ImagePlus, ListTree, Pencil, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { WheelEvent } from "react";
-import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind, ReadingMangaChapter, ReadingPosition } from "../types";
+import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind, ReadingMangaChapter, ReadingPosition, ReadingTextDocument } from "../types";
 import { ResilientImage, useOnlineStatus } from "../network";
 
 const MangaViewer = lazy(() => import("./MangaViewer").then((module) => ({ default: module.MangaViewer })));
+const NovelReader = lazy(() => import("./NovelReader").then((module) => ({ default: module.NovelReader })));
 
 type ReaderPage = { chapter: string; paragraphs?: string[]; mangaChapter?: ReadingMangaChapter };
-type ActiveReader = { item: ReadingItem; title: string; pages: ReaderPage[] };
+type ActiveReader = { item: ReadingItem; title: string; pages: ReaderPage[]; novel?: ReadingTextDocument };
 
 const chapterPattern = /^(?:第[一二三四五六七八九十百千万两〇零0-9]+[章节卷回部篇].*|chapter\s+\d+.*)$/i;
 const pageCharacterLimit = 780;
@@ -100,9 +101,9 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   useEffect(() => window.galLauncher.onReadingContentChanged(({ itemId }) => {
     if (!reader || reader.item.id !== itemId) return;
     const currentChapter = reader.pages[pageIndex]?.chapter;
-    void loadReaderPages(reader.item).then(({ title, pages }) => {
+    void loadReaderPages(reader.item).then(({ title, pages, novel }) => {
       const matchingPage = pages.findIndex((page) => page.chapter === currentChapter);
-      setReader({ item: reader.item, title, pages });
+      setReader({ item: reader.item, title, pages, novel });
       setPageIndex(matchingPage >= 0 ? matchingPage : Math.max(0, Math.min(pageIndex, pages.length - 1)));
     }).catch(() => undefined);
   }), [reader, pageIndex]);
@@ -110,7 +111,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") closeReader();
-      if (!reader || reader.item.kind === "manga") return;
+      if (!reader || reader.item.kind === "manga" || reader.novel) return;
       if (event.key === "ArrowLeft" || event.key === "PageUp") {
         event.preventDefault();
         setPageIndex((current) => Math.max(0, current - 1));
@@ -127,31 +128,28 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   }, [reader, readingStartedAt]);
 
   useEffect(() => {
-    if (!reader) return;
+    if (!reader || reader.novel) return;
     const page = reader.pages[pageIndex];
     if (reader.item.kind !== "manga") onSaveProgress(reader.item.id, pageIndex, page.chapter);
     readerScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [pageIndex, mangaPageIndex, reader]);
 
-  async function loadReaderPages(item: ReadingItem): Promise<{ title: string; pages: ReaderPage[] }> {
+  async function loadReaderPages(item: ReadingItem): Promise<{ title: string; pages: ReaderPage[]; novel?: ReadingTextDocument }> {
     if (item.kind === "manga") {
       const document = await window.galLauncher.readManga(item);
       return { title: document.title, pages: document.chapters.map((chapter) => ({ chapter: chapter.title, mangaChapter: chapter })) };
     }
     const document = await window.galLauncher.readNovel(item);
-    const pages = document.chapters?.length
-      ? document.chapters.flatMap((chapter) => paginateNovel(chapter.content, chapter.title))
-      : paginateNovel(document.content || "");
-    return { title: document.title, pages };
+    return { title: document.title, pages: [], novel: document };
   }
 
   async function openReader(item: ReadingItem) {
     try {
-      const { title, pages } = await loadReaderPages(item);
-      setPageIndex(Math.min(item.lastReadPage ?? 0, pages.length - 1));
+      const { title, pages, novel } = await loadReaderPages(item);
+      setPageIndex(Math.max(0, Math.min(item.lastReadPage ?? 0, pages.length - 1)));
       setMangaPageIndex(Math.max(0, item.lastReadMangaPage ?? 0));
       setMangaOffset(item.lastReadMangaOffset ?? 0);
-      setReader({ item, title, pages });
+      setReader({ item, title, pages, novel });
       setReadingStartedAt(Date.now());
     } catch (error) {
       const content = error instanceof Error ? error.message : "无法打开这本作品。";
@@ -272,7 +270,11 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
         </aside>
       )}
 
-      {reader && activePage && (
+      {reader?.novel && <Suspense fallback={<div className="local-reader-pdf-state">正在加载小说阅读器…</div>}><NovelReader
+        key={reader.item.id} item={reader.item} document={reader.novel} onClose={closeReader}
+        onProgress={(location, chapter) => onSaveProgress(reader.item.id, 0, chapter, undefined, { location })}
+      /></Suspense>}
+      {reader && !reader.novel && activePage && (
         <section className={`local-reader ${activePage.mangaChapter ? "manga-reader" : ""}`} role="dialog" aria-modal="true" aria-label={reader.title}>
           <aside className="local-reader-chapter-rail" aria-label="章节目录">
             <div className="local-reader-chapter-panel">

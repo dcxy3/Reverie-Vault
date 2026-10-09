@@ -21,6 +21,9 @@ out/
 # They may contain one-off fixes, local cache assumptions, or source-specific probes.
 scripts/*
 !scripts/brand-windows-exe.cjs
+!scripts/reader-smoke-main.cjs
+!scripts/test-reader-ui.cjs
+!scripts/reader-fixtures.cjs
 
 # Logs and caches
 *.log

@@ -428,7 +428,7 @@ function configureReadingWatchers(items) {
       const handle = fs.watch(watchPath, { recursive: isDirectory }, (_eventType, fileName) => {
         if (!isDirectory && fileName && path.resolve(watchPath, String(fileName)) !== path.resolve(item.filePath)) return;
         const extension = path.extname(String(fileName || "")).toLowerCase();
-        const relevant = !fileName || (item.kind === "manga" ? [".pdf", ".cbz", ".zip", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"].includes(extension) : [".txt", ".md", ".markdown"].includes(extension));
+        const relevant = !fileName || (item.kind === "manga" ? [".pdf", ".cbz", ".zip", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".avif"].includes(extension) : [".txt", ".md", ".markdown", ".epub", ".mobi", ".azw3", ".fb2"].includes(extension));
         if (!relevant) return;
         if (item.kind === "manga") {
           const changedPath = isDirectory && fileName ? path.resolve(watchPath, String(fileName)) : item.filePath;
@@ -2669,14 +2669,17 @@ ipcMain.handle("reader:readNovel", (_event, item) => {
   if (!fs.existsSync(item.filePath)) throw new Error("The imported light novel path no longer exists");
   const stat = fs.statSync(item.filePath);
   const decodeText = (filePath) => {
+    if (fs.statSync(filePath).size > 32 * 1024 * 1024) throw new Error(`文本超过 32 MB，请拆分为分卷文件：${path.basename(filePath)}`);
     const data = fs.readFileSync(filePath);
-    if (data.byteLength > 8 * 1024 * 1024) throw new Error(`The chapter is too large: ${path.basename(filePath)}`);
     const decoded = decodeTextBuffer(data);
     console.log(`[reader] ${path.basename(filePath)} decoded as ${decoded.encoding}`);
     return decoded.text;
   };
   if (stat.isFile()) {
-    if (![".txt", ".md", ".markdown"].includes(path.extname(item.filePath).toLowerCase())) throw new Error("Only TXT and Markdown light novels can be read");
+    if ([".epub", ".mobi", ".azw3", ".fb2"].includes(path.extname(item.filePath).toLowerCase())) {
+      return { title: item.title, fileName: path.basename(item.filePath), resourceUrl: issueMangaResourceUrl({ kind: "file", filePath: item.filePath, mime: "application/octet-stream" }) };
+    }
+    if (![".txt", ".md", ".markdown"].includes(path.extname(item.filePath).toLowerCase())) throw new Error("支持 TXT、Markdown、EPUB、MOBI、AZW3 和 FB2 小说");
     return { title: item.title, content: decodeText(item.filePath) };
   }
   const files = [];
@@ -2784,7 +2787,7 @@ ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
     message: isManga ? "请选择漫画导入方式" : "请选择轻小说导入方式",
     detail: isManga
       ? "支持 PDF、CBZ、ZIP 和常见图片；文件夹会递归识别分卷、章节和图片目录。"
-      : "单个文件支持 TXT、Markdown；文件夹会递归识别分卷和章节。",
+      : "单个文件支持 TXT、Markdown、EPUB、MOBI、AZW3、FB2（不支持 DRM 加密）；文件夹递归识别 TXT / Markdown 分卷和章节。",
     buttons: isManga ? ["导入漫画文件", "导入漫画文件夹", "取消"] : ["导入单个文件", "导入分卷文件夹", "取消"],
     defaultId: 0,
     cancelId: 2
@@ -2800,7 +2803,7 @@ ipcMain.handle("dialog:pickReadingItems", async (_event, kind) => {
           { name: "All files", extensions: ["*"] }
         ]
       : [
-          { name: "Light novels", extensions: ["txt", "md", "markdown"] },
+          { name: "轻小说", extensions: ["txt", "md", "markdown", "epub", "mobi", "azw3", "fb2"] },
           { name: "All files", extensions: ["*"] }
         ]
   });
