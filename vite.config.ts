@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 export default defineConfig({
   base: "./",
-  plugins: [react({ exclude: /src[\\/]reader[\\/]/ }), {
+  plugins: [react({ exclude: [/node_modules/, /src[\\/]reader[\\/]/] }), {
     name: "separate-pdf-reader",
     enforce: "pre",
     resolveId(source, importer) {
