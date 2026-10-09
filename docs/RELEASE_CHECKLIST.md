@@ -1,82 +1,38 @@
-# Release Checklist
+# 发布清单
 
-Use this checklist before publishing a new Reverie Vault release.
+## 发布前
 
-## Repository
+- 检查工作区，排除真实资料库、账号信息、个人缓存、游戏与书籍原文件。
+- 同步 package.json、package-lock.json、README 和 CHANGELOG 的版本。
+- 检查第三方依赖许可和媒体素材的分发授权；代码许可不替代媒体授权。
+- 运行 `npm run test:reader`、`npm run build` 和隔离界面测试。
+- 打包前正常关闭此前运行的 release/win-unpacked 程序，避免文件占用。
 
-- [ ] No game files are committed.
-- [ ] No downloaded covers/backgrounds are committed.
-- [ ] No `%APPDATA%\Reverie Vault` or legacy `%APPDATA%\gal-launcher` user data is committed.
-- [ ] No personal one-off maintenance scripts are committed.
-- [ ] `README.md` is up to date.
-- [ ] `CHANGELOG.md` includes the new version.
-- [ ] `package.json` and `package-lock.json` have the release version.
-- [ ] `LICENSE` is present.
-- [ ] `docs/DATA_SOURCES.md` is up to date.
-- [ ] `docs/PRIVACY.md` is up to date.
-
-## Build
-
-Fast review build:
+## Windows x64 打包
 
 ```powershell
-Stop-Process -Name "Reverie Vault" -Force -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
+npm ci
 npm run dist
+npx electron-builder --prepackaged release/win-unpacked --win nsis portable --x64 --publish never
+node scripts/finalize-release.cjs
 ```
 
-`npm run dist` runs:
+`npm run dist` 会构建前端、生成目录版，再写入 Windows 图标与版本信息。上述流程只构建一次目录版，安装版和便携版复用该目录。
 
-```text
-npm run build && electron-builder --win dir
-```
+完整压缩 `release/win-unpacked` 文件夹（保留顶层 win-unpacked），生成 `Reverie Vault Green 0.4.0 x64.zip`。对三种发布包生成 SHA256SUMS.txt，不混入旧版文件。
 
-Review executable:
+## 检查
 
-```text
-release/win-unpacked/Reverie Vault.exe
-```
+- 实际目录版可启动，显示正确图标及 0.4.0 版本，离开开屏后进入主界面。
+- app.asar 包含新阅读引擎、阅读引擎许可、开屏视频与海报，不包含用户数据。
+- 开屏可自动结束、跳过、重播，减少动态效果和视频故障不会阻塞主界面。
+- 小说目录、字号、续读和漫画适宽、长图、页内续读正常。
+- 记录尚未实测的内容，不把自动测试通过等同于所有真实游戏或第三方服务可用。
 
-Do not run `npm run dist:portable` for the normal review path. The portable build compresses the full Electron runtime into a single exe and is much slower.
+## GitHub
 
-## Manual QA
-
-- [ ] App opens from `release/win-unpacked/Reverie Vault.exe`.
-- [ ] Add game dialog works.
-- [ ] Launching a game increments play count.
-- [ ] Play time is recorded after the game exits.
-- [ ] Metadata search works or fails gracefully.
-- [ ] Cover picker works or fails gracefully.
-- [ ] Backup export/import works.
-- [ ] Cinema layout, collection view, and local shelf display correctly.
-
-## Legal / Source Hygiene
-
-- [ ] Third-party source integrations are documented.
-- [ ] No third-party artwork is bundled in the repository.
-- [ ] No scraped cache is bundled in releases.
-- [ ] User-visible wording says the app does not provide game content.
-- [ ] Community scraping sources are optional or conservative.
-
-## GitHub Release
-
-- [ ] Create a version tag, for example `v0.3.0`.
-- [ ] Attach `Reverie Vault Setup 0.3.0.exe` for normal users.
-- [ ] Zip `release/win-unpacked` as `Reverie Vault Green 0.3.0 x64.zip` for long-term portable use.
-- [ ] Attach `Reverie Vault Portable 0.3.0.exe` when a single-file build is needed.
-- [ ] Include a short changelog.
-- [ ] Mention Windows support status.
-- [ ] Tell users that Windows may show an "unknown publisher" warning because the app is unsigned.
-
-## Recommended Public Release Text
-
-```text
-Reverie Vault v0.3.0
-
-本版本统一使用 Cinema 沉浸式界面，并完善游戏、书架与音乐收藏体验。
-
-普通用户请下载 Reverie Vault Setup 0.3.0.exe。免安装使用可下载 Reverie Vault Green 0.3.0 x64.zip，完整解压后运行 win-unpacked/Reverie Vault.exe。
-
-这是一个本地 Galgame / 视觉小说启动器，不包含任何游戏本体、破解或下载资源。
-如果 Windows 提示未知发布者，是因为当前版本尚未购买代码签名证书。
-```
+- 中文提交本次改动，先检查远程更新，再正常推送，不强制覆盖历史。
+- 在同一提交上建立 v0.4.0 标签。
+- 发布安装版、便携版、绿色 ZIP 和 SHA256SUMS.txt。
+- 发布说明列出主要变化、升级注意事项和未签名提示。
+- 发布后核对标签、附件名称与大小，并确认 README 下载入口可用。

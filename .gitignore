@@ -25,6 +25,7 @@ scripts/*
 !scripts/test-reader-ui.cjs
 !scripts/reader-fixtures.cjs
 !scripts/test-startup-ui.cjs
+!scripts/finalize-release.cjs
 
 # Logs and caches
 *.log

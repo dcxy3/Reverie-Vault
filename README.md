@@ -6,11 +6,15 @@ Reverie Vault（绮梦藏馆）是一款面向 Windows 的本地 Galgame、视�
 
 ## 下载与版本选择
 
+当前版本：**0.4.0** · Windows x64。前往 [GitHub Releases](https://github.com/dcxy3/Reverie-Vault/releases/latest) 下载，查看 [更新日志](CHANGELOG.md) 和 [使用教程](docs/USER_GUIDE.md)。
+
 | 文件 | 适合场景 | 使用方式 |
 | --- | --- | --- |
-| `Reverie Vault Setup 0.3.0.exe` | 推荐普通用户使用 | 运行安装程序，可选择安装目录并创建快捷方式 |
-| `Reverie Vault Portable 0.3.0.exe` | 临时使用或随身携带 | 单文件启动，每次运行会解压到 Windows 临时目录 |
-| `Reverie Vault Green 0.3.0 x64.zip` | 推荐长期免安装使用 | 完整解压后运行 `win-unpacked/Reverie Vault.exe` |
+| `Reverie Vault Setup 0.4.0.exe` | 推荐普通用户使用 | 运行安装程序，可选择安装目录并创建快捷方式 |
+| `Reverie Vault Portable 0.4.0.exe` | 临时免安装使用 | 单文件启动，每次运行会解压到 Windows 临时目录 |
+| `Reverie Vault Green 0.4.0 x64.zip` | 推荐长期免安装使用 | 完整解压后运行 `win-unpacked/Reverie Vault.exe` |
+
+三种版本都将资料库保存在用户的 AppData 目录，便携版不代表资料库会跟随 EXE 移动。升级前建议导出备份；不要删除原有 AppData 数据目录。
 
 绿色 ZIP 必须完整解压后使用。Windows 在压缩包预览界面中不会读取内部 EXE 的嵌入图标，因此预览时可能显示通用程序图标；这不代表 EXE 没有图标。请解压到一个新文件夹后查看和运行。
 
@@ -18,15 +22,20 @@ Reverie Vault（绮梦藏馆）是一款面向 Windows 的本地 Galgame、视�
 
 - 本地游戏库：导入游戏启动文件，记录启动次数、游玩时长、状态、会社、标签和简介。
 - 收藏展示柜：统一尺寸的封面卡片、3D 倾斜和选中放大效果。
-- 本地书架：同时支持单个 TXT 小说、小说文件夹和包含多个 PDF 的漫画文件夹。
-- 沉浸阅读：章节识别、分页、章节目录、自动阅读记录以及漫画缩放。
+- 多格式书架：小说支持 TXT、Markdown、EPUB、MOBI、AZW3、FB2 和文本章节文件夹；漫画支持 PDF、CBZ、ZIP、常见图片及漫画文件夹。
+- 小说阅读：自动识别常见中日韩文本编码，自适应排版、字号、章节目录、翻页/滚动模式，以及文本位置续读。
+- 漫画阅读：PDF 分段读取，图片按比例适宽、连续滚动，不再按固定屏幕高度硬切长图，并保存页内阅读位置。
+- 书籍管理：可更改小说或漫画名称，在线封面搜索使用修改后的名称。
 - 内容监测：小说或漫画文件夹新增章节后自动刷新，无需重新导入。
-- 封面管理：在线多来源候选搜索，也可上传本地图片作为封面。
+- 封面管理：在线多来源候选搜索，横版封面支持“再次寻找”，也可上传本地图片。在线来源的可用性与结果数量受网络及源站影响。
 - 全局搜索：模糊搜索游戏、轻小说和漫画，并自动跳转到对应项目。
 - 音乐播放器：支持网易云二维码登录、喜欢歌单和本地音乐播放。
 - 离线模式：网络不可用时停止联网功能，远程封面显示“封面丢失了喵”，本地内容继续正常使用。
 - 备份恢复：以较小的元数据备份文件保存游戏、小说、漫画与阅读记录，不复制大型本地内容。
 - 其他功能：全屏、边缘停靠音乐面板、多种沉浸式交互。
+- 视频开屏：结尾慢放、轻缓前推与淡入游戏库；点击、Esc 或空格跳过，侧栏顶部图标可重播，系统设置减少动态效果时不自动播放。
+
+电子书仅支持无 DRM 文件；漫画目前不支持 CBR/RAR、CB7/7z，请先解压为图片文件夹。编码识别为自动推断，损坏文件或已经保存成乱码的文本无法保证恢复。
 
 ## 系统要求
 
@@ -57,7 +66,7 @@ Reverie Vault（绮梦藏馆）是一款面向 Windows 的本地 Galgame、视�
 
 ### 为什么 Windows 提示“未知发布者”？
 
-当前发布包没有商业代码签名证书。可以点击“更多信息”核对文件名后运行。你也可以使用同目录的 `SHA256SUMS.txt` 校验文件完整性。
+当前发布包没有商业代码签名证书。请先确认下载来自本仓库 Release，并使用同一版本的 `SHA256SUMS.txt` 核对文件哈希；仅在确认来源可信后决定是否继续运行。
 
 ### 换电脑后能直接看到原来的游戏和书籍吗？
 
@@ -65,8 +74,23 @@ Reverie Vault（绮梦藏馆）是一款面向 Windows 的本地 Galgame、视�
 
 ## 开源协议
 
-本项目使用 [MIT License](https://opensource.org/licenses/MIT)。允许自由使用、修改、分发和商业使用，但分发时需要保留原始版权声明与许可文本。
+项目代码使用 [MIT License](LICENSE)。第三方依赖遵循各自协议，阅读引擎许可见 [reader-licenses](public/reader-licenses)。视频、插画和其他第三方素材的权利归各自权利人，不因代码采用 MIT 而自动获得相同授权。
 
 ## 技术栈
 
 Electron 38、React 19、TypeScript 5.9、Vite 7。
+
+## 开发与自检
+
+使用 Node.js 22，在 Windows 上执行：
+
+```powershell
+npm ci
+npm run dev
+npm run test:reader
+npm run build
+```
+
+界面测试需可用的 Playwright（可通过 `PLAYWRIGHT_PACKAGE` 指定安装路径）。`npm run test:reader:ui` 需要运行中的本地开发服务；`npm run test:startup` 默认使用开发服务，也可在构建后设置 `STARTUP_TEST_PRODUCTION=1` 检查构建产物。测试使用隔离数据目录，不修改真实资料库。
+
+打包命令和发布检查见 [发布清单](docs/RELEASE_CHECKLIST.md)。

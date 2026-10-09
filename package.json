@@ -1,6 +1,6 @@
 {
   "name": "reverie-vault",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "description": "A local game, light novel, manga and music library for Windows.",
   "main": "electron/main.cjs",
