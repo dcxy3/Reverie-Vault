@@ -10,9 +10,11 @@ Reverie Vault（绮梦藏馆）是一款面向 Windows 的本地 Galgame、视�
 
 | 文件 | 适合场景 | 使用方式 |
 | --- | --- | --- |
-| `Reverie Vault Setup 0.4.0.exe` | 推荐普通用户使用 | 运行安装程序，可选择安装目录并创建快捷方式 |
-| `Reverie Vault Portable 0.4.0.exe` | 临时免安装使用 | 单文件启动，每次运行会解压到 Windows 临时目录 |
-| `Reverie Vault Green 0.4.0 x64.zip` | 推荐长期免安装使用 | 完整解压后运行 `win-unpacked/Reverie Vault.exe` |
+| `Reverie.Vault.Setup.0.4.0.exe` | 推荐普通用户使用 | 运行安装程序，可选择安装目录并创建快捷方式 |
+| `Reverie.Vault.Portable.0.4.0.exe` | 临时免安装使用 | 单文件启动，每次运行会解压到 Windows 临时目录 |
+| `Reverie.Vault.Green.0.4.0.x64.zip` | 推荐长期免安装使用 | 完整解压后运行 `win-unpacked/Reverie Vault.exe` |
+
+GitHub 会将上传文件名中的空格替换为点；本地打包文件仍使用空格。校验文件中的名称与 GitHub 下载附件一致。
 
 三种版本都将资料库保存在用户的 AppData 目录，便携版不代表资料库会跟随 EXE 移动。升级前建议导出备份；不要删除原有 AppData 数据目录。
 

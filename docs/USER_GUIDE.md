@@ -7,7 +7,7 @@
 进入 GitHub 的 **Releases** 页面，根据需要下载安装版、便携版或绿色版。推荐普通用户下载：
 
 ```text
-Reverie Vault Setup 0.4.0.exe
+Reverie.Vault.Setup.0.4.0.exe
 ```
 
 下载后双击打开。
