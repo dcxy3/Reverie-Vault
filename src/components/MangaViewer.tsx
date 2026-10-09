@@ -1,84 +1,52 @@
 import { ChevronLeft, ChevronRight, Maximize2, Minus, Plus } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { GlobalWorkerOptions, getDocument } from "pdfjs-dist";
-import type { PDFDocumentLoadingTask, PDFDocumentProxy, RenderTask } from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { ReadingMangaChapter } from "../types";
+import { PdfReader } from "./PdfReader";
 
-GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 type PageSize = { width: number; height: number };
 
-function PdfCanvasPage({ document, index, width, onSize }: {
-  document: PDFDocumentProxy;
-  index: number;
-  width: number;
-  onSize: (index: number, size: PageSize) => void;
-}) {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [message, setMessage] = useState("正在加载…");
-
-  useEffect(() => {
-    let disposed = false;
-    let renderTask: RenderTask | null = null;
-    setMessage("正在加载…");
-    document.getPage(index + 1).then((page) => {
-      if (disposed || !canvasRef.current) return;
-      const base = page.getViewport({ scale: 1 });
-      onSize(index, { width: base.width, height: base.height });
-      const viewport = page.getViewport({ scale: width / base.width });
-      const outputScale = Math.min(window.devicePixelRatio || 1, 1.5);
-      const canvas = canvasRef.current;
-      const context = canvas.getContext("2d", { alpha: false });
-      if (!context) throw new Error("Canvas is unavailable");
-      canvas.width = Math.max(1, Math.round(viewport.width * outputScale));
-      canvas.height = Math.max(1, Math.round(viewport.height * outputScale));
-      renderTask = page.render({
-        canvas,
-        canvasContext: context,
-        viewport,
-        transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0]
-      });
-      return renderTask.promise;
-    }).then(() => {
-      if (!disposed) setMessage("");
-    }).catch((error) => {
-      if (!disposed && error?.name !== "RenderingCancelledException") setMessage(error instanceof Error ? `加载失败：${error.message}` : "加载失败");
-    });
-    return () => {
-      disposed = true;
-      renderTask?.cancel();
-    };
-  }, [document, index, width, onSize]);
-
-  return <>
-    <canvas className="manga-page-canvas" ref={canvasRef} />
-    {message && <span className="manga-page-placeholder">{message}</span>}
-  </>;
-}
-
-export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapter, onNextChapter }: {
+type MangaProps = {
   chapter: ReadingMangaChapter;
   pageIndex: number;
-  onPageChange: (page: number) => void;
+  initialOffset?: number;
+  onPageChange: (page: number, offset: number) => void;
   onPreviousChapter: () => void;
   onNextChapter: () => void;
-}) {
+};
+
+export function MangaViewer(props: MangaProps) {
+  return props.chapter.kind === "pdf"
+    ? <PdfReader url={props.chapter.resourceUrl!} initialPage={props.pageIndex} initialOffset={props.initialOffset}
+        onProgress={props.onPageChange} onPreviousChapter={props.onPreviousChapter} onNextChapter={props.onNextChapter} />
+    : <ImageReader {...props} />;
+}
+
+function ImageReader({ chapter, pageIndex, initialOffset = 0, onPageChange, onPreviousChapter, onNextChapter }: MangaProps) {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const pageRefs = useRef<Array<HTMLDivElement | null>>([]);
   const activePageRef = useRef(pageIndex);
   const scrollFrameRef = useRef<number | null>(null);
   const positionedRef = useRef(false);
+  const progressRef = useRef({ page: pageIndex, offset: initialOffset });
+  const progressCallback = useRef(onPageChange);
+  progressCallback.current = onPageChange;
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const dirtyRef = useRef(false);
+  const flushProgress = () => {
+    clearTimeout(saveTimer.current);
+    if (dirtyRef.current) progressCallback.current(progressRef.current.page, progressRef.current.offset);
+    dirtyRef.current = false;
+  };
   const zoomAnchorRef = useRef<{ index: number; fraction: number } | null>(null);
-  const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
-  const [pageCount, setPageCount] = useState(chapter.kind === "pdf" ? 0 : Math.max(1, chapter.pages?.length || 0));
-  const [defaultSize, setDefaultSize] = useState<PageSize>({ width: 700, height: 1000 });
+  const pageCount = chapter.pages?.length || 0;
+  const [defaultSize] = useState<PageSize>({ width: 700, height: 1000 });
   const [pageSizes, setPageSizes] = useState<Record<number, PageSize>>({});
   const [nearbyPages, setNearbyPages] = useState<Set<number>>(() => new Set([pageIndex]));
   const [stageWidth, setStageWidth] = useState(0);
   const [zoom, setZoom] = useState(100);
-  const [status, setStatus] = useState(chapter.kind === "pdf" ? "正在读取 PDF…" : "");
-  const ready = chapter.kind === "images" || Boolean(pdf);
+  const [status, setStatus] = useState("");
+  const ready = pageCount > 0;
   const pageWidth = Math.max(1, stageWidth - 36) * zoom / 100;
 
   useEffect(() => { activePageRef.current = pageIndex; }, [pageIndex]);
@@ -93,27 +61,6 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
     return () => observer.disconnect();
   }, []);
 
-  useEffect(() => {
-    if (chapter.kind !== "pdf" || !chapter.resourceUrl) return;
-    let disposed = false;
-    const task: PDFDocumentLoadingTask = getDocument({ url: chapter.resourceUrl, rangeChunkSize: 128 * 1024 });
-    task.promise.then(async (document) => {
-      const first = await document.getPage(1);
-      if (disposed) return;
-      const viewport = first.getViewport({ scale: 1 });
-      setDefaultSize({ width: viewport.width, height: viewport.height });
-      setPageCount(document.numPages);
-      setPdf(document);
-      setStatus("");
-      if (pageIndex >= document.numPages) onPageChange(document.numPages - 1);
-    }).catch((error) => {
-      if (!disposed) setStatus(error instanceof Error ? `无法读取 PDF：${error.message}` : "无法读取 PDF");
-    });
-    return () => {
-      disposed = true;
-      void task.destroy();
-    };
-  }, [chapter]);
 
   const savePageSize = useCallback((index: number, size: PageSize) => {
     setPageSizes((current) => {
@@ -128,9 +75,14 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
     const stage = stageRef.current;
     const target = pageRefs.current[Math.min(pageIndex, pageCount - 1)];
     if (!stage || !target) return;
-    stage.scrollTop = target.offsetTop;
+    stage.scrollTop = target.offsetTop + target.offsetHeight * initialOffset;
     positionedRef.current = true;
   }, [ready, stageWidth, pageCount, pageIndex]);
+
+  useLayoutEffect(() => {
+    const target = pageRefs.current[progressRef.current.page];
+    if (target && stageRef.current && positionedRef.current) stageRef.current.scrollTop = target.offsetTop + target.offsetHeight * progressRef.current.offset;
+  }, [stageWidth, pageSizes]);
 
   useLayoutEffect(() => {
     const anchor = zoomAnchorRef.current;
@@ -161,13 +113,14 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
   }, [ready, pageCount]);
 
   useEffect(() => () => {
+    flushProgress();
     if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
   }, []);
 
   const updateActivePage = () => {
     const stage = stageRef.current;
     if (!stage || !positionedRef.current) return;
-    const position = stage.scrollTop + Math.min(120, stage.clientHeight * 0.2);
+    const position = stage.scrollTop + 1;
     let low = 0;
     let high = pageCount - 1;
     while (low < high) {
@@ -176,10 +129,13 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
       if (element && element.offsetTop + element.offsetHeight <= position) low = middle + 1;
       else high = middle;
     }
-    if (low !== activePageRef.current) {
-      activePageRef.current = low;
-      onPageChange(low);
-    }
+    activePageRef.current = low;
+    const target = pageRefs.current[low];
+    const offset = target ? Math.max(0, Math.min(1, (stage.scrollTop - target.offsetTop) / target.offsetHeight)) : 0;
+    progressRef.current = { page: low, offset };
+    dirtyRef.current = true;
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(flushProgress, 250);
   };
 
   const scrollToPage = (index: number) => {
@@ -189,7 +145,8 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
     const target = pageRefs.current[index];
     if (!target) return;
     activePageRef.current = index;
-    onPageChange(index);
+    progressRef.current = { page: index, offset: 0 };
+    onPageChange(index, 0);
     if (stageRef.current) stageRef.current.scrollTop = target.offsetTop;
   };
 
@@ -204,6 +161,7 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.target as HTMLElement)?.closest("input, textarea, select, [contenteditable=true]")) return;
       if (event.key === "ArrowLeft") { event.preventDefault(); scrollToPage(activePageRef.current - 1); }
       if (event.key === "ArrowRight") { event.preventDefault(); scrollToPage(activePageRef.current + 1); }
       if (["PageUp", "PageDown", " "].includes(event.key)) {
@@ -235,15 +193,14 @@ export function MangaViewer({ chapter, pageIndex, onPageChange, onPreviousChapte
           style={{ width: pageWidth, height }}
           aria-label={`第 ${index + 1} 页`}
         >
-          {isNearby && (chapter.kind === "pdf" && pdf
-            ? <PdfCanvasPage document={pdf} index={index} width={pageWidth} onSize={savePageSize} />
-            : chapter.pages?.[index] && <img
+          {isNearby && chapter.pages?.[index] && <img
                 className="manga-page-image"
                 src={chapter.pages[index].url}
                 alt={chapter.pages[index].title}
                 draggable={false}
                 onLoad={(event) => savePageSize(index, { width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
-              />)}
+                onError={() => setStatus("图片加载失败，请退出后重新打开")}
+              />}
         </div>;
       })}
       {status && <div className="manga-page-status">{status}</div>}

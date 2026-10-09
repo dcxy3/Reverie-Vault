@@ -472,6 +472,8 @@ function backupReadingItems(items) {
     importedAt: String(item.importedAt || ""),
     ...(Number.isInteger(item.lastReadPage) ? { lastReadPage: item.lastReadPage } : {}),
     ...(Number.isInteger(item.lastReadMangaPage) ? { lastReadMangaPage: item.lastReadMangaPage } : {}),
+    ...(Number.isFinite(item.lastReadMangaOffset) ? { lastReadMangaOffset: item.lastReadMangaOffset } : {}),
+    ...(typeof item.lastReadLocation === "string" ? { lastReadLocation: item.lastReadLocation } : {}),
     ...(item.lastReadChapter ? { lastReadChapter: String(item.lastReadChapter) } : {}),
     ...(item.lastReadAt ? { lastReadAt: String(item.lastReadAt) } : {}),
     ...(Number.isFinite(item.totalReadingSeconds) ? { totalReadingSeconds: Math.max(0, item.totalReadingSeconds) } : {}),

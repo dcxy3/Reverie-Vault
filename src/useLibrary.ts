@@ -482,10 +482,10 @@ export function useLibrary() {
     });
   }
 
-  function saveReadingProgress(itemId: string, page: number, chapter: string, mangaPage?: number) {
+  function saveReadingProgress(itemId: string, page: number, chapter: string, mangaPage?: number, position?: { mangaOffset?: number; location?: string }) {
     setReadingItems((current) => {
       const next = current.map((item) => item.id === itemId
-        ? { ...item, lastReadPage: page, lastReadChapter: chapter, ...(Number.isInteger(mangaPage) ? { lastReadMangaPage: mangaPage } : {}), lastReadAt: new Date().toISOString() }
+        ? { ...item, lastReadPage: page, lastReadChapter: chapter, ...(Number.isInteger(mangaPage) ? { lastReadMangaPage: mangaPage } : {}), ...(position?.mangaOffset !== undefined ? { lastReadMangaOffset: position.mangaOffset } : {}), ...(position?.location ? { lastReadLocation: position.location } : {}), lastReadAt: new Date().toISOString() }
         : item);
       void window.galLauncher.saveReadingLibrary(next);
       return next;

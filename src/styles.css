@@ -2704,6 +2704,17 @@ textarea:focus-visible {
   scrollbar-color: rgba(220, 240, 255, 0.35) transparent;
 }
 
+.pdf-reader-container {
+  position: absolute;
+  inset: 0 0 68px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  text-align: initial;
+}
+
+.pdf-reader-container .pdfViewer { padding: 0; }
+.pdf-reader-container .pdfViewer .page { margin: 0 auto; border: 0; }
+
 .manga-continuous-page {
   position: relative;
   flex: none;

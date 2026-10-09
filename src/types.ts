@@ -78,6 +78,8 @@ export interface ReadingItem {
   importedAt: string;
   lastReadPage?: number;
   lastReadMangaPage?: number;
+  lastReadMangaOffset?: number;
+  lastReadLocation?: string;
   lastReadChapter?: string;
   lastReadAt?: string;
   totalReadingSeconds?: number;
@@ -88,8 +90,15 @@ export interface ReadingItem {
 
 export type PickedReadingItem = Omit<ReadingItem, "id" | "importedAt">;
 
+export interface ReadingPosition {
+  mangaOffset?: number;
+  location?: string;
+}
+
 export interface ReadingTextDocument {
   title: string;
+  resourceUrl?: string;
+  fileName?: string;
   content?: string;
   chapters?: Array<{ title: string; content: string }>;
 }

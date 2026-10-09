@@ -1,7 +1,7 @@
 import { BookOpen, ChevronLeft, ChevronRight, FileText, Image, ImageOff, ImagePlus, ListTree, Pencil, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { WheelEvent } from "react";
-import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind, ReadingMangaChapter } from "../types";
+import type { ReadingCoverCandidate, ReadingItem, ReadingItemKind, ReadingMangaChapter, ReadingPosition } from "../types";
 import { ResilientImage, useOnlineStatus } from "../network";
 
 const MangaViewer = lazy(() => import("./MangaViewer").then((module) => ({ default: module.MangaViewer })));
@@ -52,7 +52,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   selectedItemId?: string;
   selectionRequest?: number;
   onImport: (kind: ReadingItemKind) => void;
-  onSaveProgress: (itemId: string, page: number, chapter: string, mangaPage?: number) => void;
+  onSaveProgress: (itemId: string, page: number, chapter: string, mangaPage?: number, position?: ReadingPosition) => void;
   onRename: (itemId: string, title: string) => void;
   onAddReadingTime: (itemId: string, seconds: number) => void;
   onRemoveItem: (item: ReadingItem) => boolean;
@@ -63,6 +63,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   const [reader, setReader] = useState<ActiveReader | null>(null);
   const [pageIndex, setPageIndex] = useState(0);
   const [mangaPageIndex, setMangaPageIndex] = useState(0);
+  const [mangaOffset, setMangaOffset] = useState(0);
   const [selectedItem, setSelectedItem] = useState<ReadingItem | null>(null);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const [isRenaming, setIsRenaming] = useState(false);
@@ -128,7 +129,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
   useEffect(() => {
     if (!reader) return;
     const page = reader.pages[pageIndex];
-    onSaveProgress(reader.item.id, pageIndex, page.chapter, reader.item.kind === "manga" ? mangaPageIndex : undefined);
+    if (reader.item.kind !== "manga") onSaveProgress(reader.item.id, pageIndex, page.chapter);
     readerScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [pageIndex, mangaPageIndex, reader]);
 
@@ -149,6 +150,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
       const { title, pages } = await loadReaderPages(item);
       setPageIndex(Math.min(item.lastReadPage ?? 0, pages.length - 1));
       setMangaPageIndex(Math.max(0, item.lastReadMangaPage ?? 0));
+      setMangaOffset(item.lastReadMangaOffset ?? 0);
       setReader({ item, title, pages });
       setReadingStartedAt(Date.now());
     } catch (error) {
@@ -184,6 +186,7 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
     if (!reader || nextIndex < 0 || nextIndex >= reader.pages.length) return;
     setPageIndex(nextIndex);
     setMangaPageIndex(0);
+    setMangaOffset(0);
   };
 
   return (
@@ -290,7 +293,11 @@ export function LocalShelf({ items, selectedItemId, selectionRequest, onImport, 
                     key={`${reader.item.id}-${pageIndex}`}
                     chapter={activePage.mangaChapter}
                     pageIndex={mangaPageIndex}
-                    onPageChange={setMangaPageIndex}
+                    initialOffset={mangaOffset}
+                    onPageChange={(page, offset) => {
+                      setMangaPageIndex(page);
+                      onSaveProgress(reader.item.id, pageIndex, activePage.chapter, page, { mangaOffset: offset });
+                    }}
                     onPreviousChapter={() => changeChapter(pageIndex - 1)}
                     onNextChapter={() => changeChapter(pageIndex + 1)}
                   /></Suspense>
