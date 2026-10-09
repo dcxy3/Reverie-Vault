@@ -13,6 +13,15 @@
   cursor: pointer;
 }
 .startup-film.is-leaving { opacity: 0; }
+.startup-film-portal { position: absolute; inset: 0; opacity: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 54%, #a2eaff45 0%, transparent 24%, #dc64c530 66%, #09061690 100%); }
+.startup-film.is-pushing .startup-film-art { transform-origin: 50% 54%; animation: startup-enter-eye 1170ms cubic-bezier(.55,.04,.75,.45) both; will-change: transform; }
+.startup-film.is-pushing .startup-film-brand,
+.startup-film.is-pushing .startup-film-footer,
+.startup-film.is-pushing .startup-film-timeline { opacity: 0; transform: translateY(12px); transition: opacity 200ms ease, transform 300ms ease; }
+.startup-film.is-pushing .startup-film-shade { opacity: 0; transition: opacity 400ms ease; }
+.startup-film.is-pushing .startup-film-portal { animation: startup-portal-glow 1170ms ease both; }
+@keyframes startup-enter-eye { from { transform: scale(1); } to { transform: scale(8); } }
+@keyframes startup-portal-glow { 0% { opacity: 0; } 45% { opacity: .7; } 100% { opacity: .15; } }
 .startup-film-art { position: absolute; inset: 0; animation: startup-art-arrive 1300ms cubic-bezier(.2,.7,.2,1) both; }
 .startup-film-video, .startup-film-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 44%; }
 .startup-film-shade { position: absolute; inset: 0; background: linear-gradient(180deg, #04060b25 0%, transparent 36%, #06071345 60%, #060713ed 100%), radial-gradient(ellipse at center, transparent 35%, #03050a77 100%); }
@@ -29,7 +38,7 @@
 .startup-film-skip:focus-visible { outline: 2px solid #b4ddff; outline-offset: 4px; }
 .startup-film-skip kbd { padding: 2px 5px; border: 1px solid #ffffff33; border-radius: 3px; font: inherit; color: #b5b2c6; }
 .startup-film-timeline { position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: #ffffff0a; }
-.startup-film-timeline i { display: block; height: 100%; width: 100%; transform-origin: left; background: linear-gradient(90deg, #80c4ef66, #c9a6e0c9); animation: startup-timeline 6400ms linear both; }
+.startup-film-timeline i { display: block; height: 100%; width: 100%; transform-origin: left; background: linear-gradient(90deg, #80c4ef66, #c9a6e0c9); animation: startup-timeline 5100ms linear both; }
 @keyframes startup-art-arrive { from { opacity: 0; transform: scale(1.035); } to { opacity: 1; transform: scale(1); } }
 @keyframes startup-title { from { opacity: 0; transform: translateY(12px); filter: blur(5px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
 @keyframes startup-rule { from { opacity: 0; transform: scaleX(0); } to { opacity: 1; transform: scaleX(1); } }

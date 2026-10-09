@@ -25,6 +25,7 @@ export function StartupExperience({ children }: { children: ReactNode }) {
 
 function StartupFilm({ onComplete }: { onComplete: () => void }) {
   const [leaving, setLeaving] = useState(false);
+  const [pushing, setPushing] = useState(false);
   const [still, setStill] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const video = useRef<HTMLVideoElement>(null);
   const skip = useRef<HTMLButtonElement>(null);
@@ -52,6 +53,19 @@ function StartupFilm({ onComplete }: { onComplete: () => void }) {
     // trap the user behind the intro. The library loads concurrently underneath.
     const deadline = setTimeout(finish, 8000);
     const player = video.current;
+    let frame = 0;
+    let pushTimer: ReturnType<typeof setTimeout> | undefined;
+    const watchFrame = (_now: number, metadata: VideoFrameCallbackMetadata) => {
+      if (disposed || exiting.current || !player) return;
+      // The pink eye window is fully visible at 3.93s in the supplied clip.
+      // Freeze that exact scene, then push into it instead of zooming a later frame.
+      if (metadata.mediaTime >= 3.93) {
+        player.pause();
+        setPushing(true);
+        pushTimer = setTimeout(finish, 650);
+      } else frame = player.requestVideoFrameCallback(watchFrame);
+    };
+    if (player) frame = player.requestVideoFrameCallback(watchFrame);
     if (player) void player.play().catch(() => { if (!disposed) fallback(); });
     else fallback();
     const keydown = (event: KeyboardEvent) => {
@@ -61,6 +75,8 @@ function StartupFilm({ onComplete }: { onComplete: () => void }) {
     window.addEventListener("keydown", keydown, true);
     return () => {
       disposed = true;
+      clearTimeout(pushTimer);
+      if (player) player.cancelVideoFrameCallback(frame);
       clearTimeout(deadline); clearTimeout(exitTimer.current); clearTimeout(fallbackTimer.current);
       fallbackTimer.current = undefined;
       window.removeEventListener("keydown", keydown, true);
@@ -69,7 +85,7 @@ function StartupFilm({ onComplete }: { onComplete: () => void }) {
     };
   }, [finish, fallback]);
 
-  return <section className={`startup-film${leaving ? " is-leaving" : ""}${still ? " is-still" : ""}`}
+  return <section className={`startup-film${leaving ? " is-leaving" : ""}${still ? " is-still" : ""}${pushing ? " is-pushing" : ""}`}
     role="dialog" aria-modal="true" aria-label="绮梦藏馆开屏动画" onClick={finish}>
     <div className="startup-film-art" aria-hidden="true">
       <img className="startup-film-poster" src="./startup/reverie-intro.jpg" alt="" />
@@ -78,6 +94,7 @@ function StartupFilm({ onComplete }: { onComplete: () => void }) {
         onEnded={finish} onError={fallback} />}
     </div>
     <div className="startup-film-shade" aria-hidden="true" />
+    <div className="startup-film-portal" aria-hidden="true" />
     <div className="startup-film-brand">
       <span className="startup-film-rule" aria-hidden="true" />
       <p className="startup-film-wordmark">REVERIE <span>VAULT</span></p>
