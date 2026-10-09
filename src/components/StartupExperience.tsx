@@ -31,16 +31,22 @@ function StartupFilm({ onComplete }: { onComplete: () => void }) {
   const video = useRef<HTMLVideoElement>(null);
   const skip = useRef<HTMLButtonElement>(null);
   const exiting = useRef(false);
+  const cinematicExit = useRef(false);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const fallbackTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const finish = useCallback((duration = 520) => {
-    if (exiting.current) return;
+    // Explicit skipping must still work during the long cinematic crossfade.
+    if (exiting.current && !(duration === 520 && cinematicExit.current)) return;
+    clearTimeout(exitTimer.current);
+    cinematicExit.current = duration !== 520;
+    if (!cinematicExit.current) setSoftLeaving(false);
     exiting.current = true;
     setLeaving(true);
     if (duration === 520) video.current?.pause();
     exitTimer.current = setTimeout(onComplete, duration);
   }, [onComplete]);
   const fallback = useCallback(() => {
+    if (exiting.current) return;
     setStill(true);
     if (!fallbackTimer.current) fallbackTimer.current = setTimeout(() => finish(), 1800);
   }, [finish]);
@@ -74,6 +80,11 @@ function StartupFilm({ onComplete }: { onComplete: () => void }) {
     if (player) void player.play().catch(() => { if (!disposed) fallback(); });
     else fallback();
     const keydown = (event: KeyboardEvent) => {
+      if (event.key === "Tab") {
+        event.preventDefault();
+        skip.current?.focus({ preventScroll: true });
+        return;
+      }
       if (!["Escape", " ", "Enter"].includes(event.key)) return;
       event.preventDefault(); event.stopImmediatePropagation(); finish();
     };

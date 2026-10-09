@@ -47,6 +47,24 @@ const { _electron } = require(process.env.PLAYWRIGHT_PACKAGE || "playwright");
     await page.reload();
     await page.locator(".startup-app-content").waitFor();
     assert.equal(await film.count(), 0, "刷新不会重复播放");
+    await replay();
+    await page.keyboard.press("Tab");
+    assert.equal(await page.getByRole("button", { name: "跳过动画" }).evaluate(el => el === document.activeElement), true, "焦点不能穿透开屏");
+    await page.locator(".startup-film.is-soft-exit").waitFor({ state: "attached" });
+    await page.keyboard.press("Escape");
+    await film.waitFor({ state: "detached", timeout: 1000 });
+    // Interrupt an active intro with another replay; old timers must not close it.
+    await replay();
+    await page.waitForTimeout(500);
+    await page.evaluate(() => window.dispatchEvent(new Event("reverie:replay-startup")));
+    await page.waitForTimeout(900);
+    assert.equal(await film.count(), 1, "连续重播不会被旧计时器关闭");
+    await page.keyboard.press("Escape");
+    await film.waitFor({ state: "detached" });
+    await replay();
+    await page.locator("video").evaluate(el => el.pause());
+    await film.waitFor({ state: "detached", timeout: 9500 });
+    assert.equal(await page.locator(".startup-app-content").evaluate(el => el.inert), false, "播放停滞时安全退出并释放主界面");
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(1040, 680));
     for (const key of ["Escape", "Space"]) {
       await replay();
