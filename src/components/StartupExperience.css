@@ -13,16 +13,16 @@
   cursor: pointer;
 }
 .startup-film.is-leaving { opacity: 0; }
-.startup-film.is-soft-exit { transition: opacity 1100ms cubic-bezier(.4, 0, .2, 1); }
+.startup-film.is-soft-exit { transition: opacity 2200ms cubic-bezier(.33, 0, .2, 1); }
 .startup-film-portal { position: absolute; inset: 0; opacity: 0; pointer-events: none; background: radial-gradient(ellipse at 50% 54%, #a2eaff45 0%, transparent 24%, #dc64c530 66%, #09061690 100%); }
-.startup-film.is-pushing .startup-film-art { transform-origin: 50% 54%; animation: startup-enter-eye 2300ms cubic-bezier(.42,0,.25,1) both; will-change: transform; }
+.startup-film.is-pushing .startup-film-art { transform-origin: 50% 54%; animation: startup-enter-eye 2500ms cubic-bezier(.33,0,.2,1) both; will-change: transform; }
 .startup-film.is-pushing .startup-film-brand,
 .startup-film.is-pushing .startup-film-footer,
 .startup-film.is-pushing .startup-film-timeline { opacity: 0; transform: translateY(6px); transition: opacity 600ms ease, transform 800ms ease; }
-.startup-film.is-pushing .startup-film-shade { opacity: 0; transition: opacity 1000ms ease; }
-.startup-film.is-pushing .startup-film-portal { animation: startup-portal-glow 2300ms ease-in-out both; }
-@keyframes startup-enter-eye { from { transform: scale(1); } to { transform: scale(4.6); } }
-@keyframes startup-portal-glow { 0% { opacity: 0; } 55% { opacity: .32; } 100% { opacity: 0; } }
+.startup-film.is-pushing .startup-film-shade { opacity: .65; transition: opacity 1800ms ease; }
+.startup-film.is-pushing .startup-film-portal { animation: startup-portal-glow 2500ms ease-in-out both; }
+@keyframes startup-enter-eye { from { transform: scale(1); } to { transform: scale(1.65); } }
+@keyframes startup-portal-glow { 0% { opacity: 0; } 45% { opacity: .12; } 100% { opacity: 0; } }
 .startup-film-art { position: absolute; inset: 0; animation: startup-art-arrive 1300ms cubic-bezier(.2,.7,.2,1) both; }
 .startup-film-video, .startup-film-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 44%; }
 .startup-film-shade { position: absolute; inset: 0; background: linear-gradient(180deg, #04060b25 0%, transparent 36%, #06071345 60%, #060713ed 100%), radial-gradient(ellipse at center, transparent 35%, #03050a77 100%); }

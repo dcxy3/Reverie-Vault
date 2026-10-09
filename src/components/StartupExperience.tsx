@@ -37,7 +37,7 @@ function StartupFilm({ onComplete }: { onComplete: () => void }) {
     if (exiting.current) return;
     exiting.current = true;
     setLeaving(true);
-    video.current?.pause();
+    if (duration === 520) video.current?.pause();
     exitTimer.current = setTimeout(onComplete, duration);
   }, [onComplete]);
   const fallback = useCallback(() => {
@@ -59,11 +59,15 @@ function StartupFilm({ onComplete }: { onComplete: () => void }) {
     const watchFrame = (_now: number, metadata: VideoFrameCallbackMetadata) => {
       if (disposed || exiting.current || !player) return;
       // The pink eye window is fully visible at 3.93s in the supplied clip.
-      // Freeze that exact scene, then push into it instead of zooming a later frame.
+      // Keep the last moment moving slowly; a frozen frame plus a large zoom
+      // feels like a collision. Reveal the library early during a shallow push.
       if (metadata.mediaTime >= 3.93) {
-        player.pause();
+        player.playbackRate = 0.35;
         setPushing(true);
-        pushTimer = setTimeout(() => { setSoftLeaving(true); finish(1120); }, 1180);
+        pushTimer = setTimeout(() => {
+          if (exiting.current) return;
+          setSoftLeaving(true); finish(2220);
+        }, 300);
       } else frame = player.requestVideoFrameCallback(watchFrame);
     };
     if (player) frame = player.requestVideoFrameCallback(watchFrame);
@@ -92,7 +96,7 @@ function StartupFilm({ onComplete }: { onComplete: () => void }) {
       <img className="startup-film-poster" src="./startup/reverie-intro.jpg" alt="" />
       {!still && <video ref={video} className="startup-film-video" src="./startup/reverie-intro.webm"
         poster="./startup/reverie-intro.jpg" autoPlay muted playsInline preload="auto" disablePictureInPicture
-        onEnded={() => finish()} onError={fallback} />}
+        onEnded={() => { if (!pushing) finish(); }} onError={fallback} />}
     </div>
     <div className="startup-film-shade" aria-hidden="true" />
     <div className="startup-film-portal" aria-hidden="true" />
