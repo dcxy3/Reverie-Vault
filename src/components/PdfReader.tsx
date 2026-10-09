@@ -18,6 +18,8 @@ export function PdfReader({ url, initialPage, initialOffset = 0, onProgress, onP
   const containerRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<PDFViewer | null>(null);
+  const fitRef = useRef<(zoom?: number) => void>(() => {});
+  const zoomRef = useRef(1);
   const callbacks = useRef({ onProgress, onPreviousChapter, onNextChapter });
   callbacks.current = { onProgress, onPreviousChapter, onNextChapter };
   const [page, setPage] = useState(initialPage + 1);
@@ -38,23 +40,53 @@ export function PdfReader({ url, initialPage, initialOffset = 0, onProgress, onP
     let pending: { page: number; offset: number } | undefined;
     const flush = () => {
       clearTimeout(timer);
+      timer = undefined;
       if (pending) callbacks.current.onProgress(pending.page, pending.offset);
       pending = undefined;
     };
     // Store a page-relative fraction, independent of canvas resolution/window size.
-    eventBus.on("updateviewarea", ({ location }: { location: { pageNumber: number } }) => {
+    const collectPosition = () => {
       if (!ready || disposed) return;
-      const index = location.pageNumber - 1;
+      let index = 0, high = viewer.pagesCount - 1;
+      while (index < high) {
+        const middle = Math.floor((index + high) / 2);
+        const page = viewer.getPageView(middle).div;
+        if (page.offsetTop + page.clientHeight <= container.scrollTop + 1) index = middle + 1;
+        else high = middle;
+      }
       const element = viewer.getPageView(index)?.div;
       if (!element) return;
       const offset = Math.max(0, Math.min(1, (container.scrollTop - element.offsetTop) / element.clientHeight));
       setPage(index + 1);
       pending = { page: index, offset };
-      clearTimeout(timer);
-      timer = setTimeout(flush, 250);
-    });
+      if (timer === undefined) timer = setTimeout(flush, 250);
+    };
+    const fitWidth = () => {
+      if (disposed || !viewer.pagesCount) return;
+      const index = Math.max(0, Math.min(viewer.currentPageNumber - 1, viewer.pagesCount - 1));
+      const element = viewer.getPageView(index).div;
+      const fraction = Math.max(0, (container.scrollTop - element.offsetTop) / Math.max(1, element.clientHeight));
+      // Normalize each page separately: scans may have different resolutions or
+      // landscape spreads. PDF.js still owns rendering, caching and cancellation.
+      for (let i = 0; i < viewer.pagesCount; i++) {
+        const page = viewer.getPageView(i);
+        const baseWidth = page.viewport.width / page.scale;
+        const targetScale = Math.max(.1, (container.clientWidth - 2) / baseWidth) * zoomRef.current;
+        if (Math.abs(page.scale - targetScale) > .0001) page.update({ scale: targetScale });
+        page.div.style.setProperty("--scale-factor", String(page.viewport.scale));
+      }
+      if (zoomRef.current === 1) container.scrollLeft = 0;
+      container.scrollTop = element.offsetTop + element.clientHeight * fraction;
+      viewer.update();
+      setScale(Math.round(zoomRef.current * 100));
+    };
+    fitRef.current = (zoom = 1) => { zoomRef.current = zoom; fitWidth(); };
+    eventBus.on("updateviewarea", collectPosition);
+    container.addEventListener("scroll", collectPosition, { passive: true });
+    window.addEventListener("pagehide", flush);
     eventBus.on("scalechanging", ({ scale: value }: { scale: number }) => setScale(Math.round(value * 100)));
     eventBus.on("pagesinit", () => {
+      if (disposed) return;
       viewer.currentScaleValue = "page-width";
       const index = Math.max(0, Math.min(initialPage, viewer.pagesCount - 1));
       viewer.currentPageNumber = index + 1;
@@ -63,6 +95,7 @@ export function PdfReader({ url, initialPage, initialOffset = 0, onProgress, onP
       ready = true;
       setPage(index + 1);
       setStatus("");
+      void viewer.pagesPromise.then(() => { if (!disposed) fitWidth(); });
     });
     eventBus.on("pagerendered", ({ error }: { error?: Error }) => {
       if (error && !disposed) setStatus(`页面渲染失败：${error.message}`);
@@ -74,13 +107,16 @@ export function PdfReader({ url, initialPage, initialOffset = 0, onProgress, onP
       viewer.setDocument(document);
     }).catch(error => { if (!disposed) setStatus(`无法读取 PDF：${error.message}`); });
     const observer = new ResizeObserver(() => {
-      if (ready && viewer.currentScaleValue === "page-width") viewer.currentScaleValue = "page-width";
+      if (ready) fitWidth();
     });
     observer.observe(container);
     return () => {
+      collectPosition();
       flush();
       disposed = true;
       observer.disconnect();
+      container.removeEventListener("scroll", collectPosition);
+      window.removeEventListener("pagehide", flush);
       viewerRef.current = null;
       viewer.setDocument(null!);
       void task.destroy();
@@ -118,10 +154,10 @@ export function PdfReader({ url, initialPage, initialOffset = 0, onProgress, onP
       <span>连续阅读 · 第 {page} / {count || "…"} 页</span>
       <button aria-label="下一页" onClick={() => move(1)} disabled={!count}><ChevronRight size={18} /></button>
       <i />
-      <button aria-label="缩小" onClick={() => { const v = viewerRef.current; if (v) v.currentScale = Math.max(.25, v.currentScale / 1.1); }}><Minus size={16} /></button>
+      <button aria-label="缩小" onClick={() => fitRef.current(Math.max(.5, zoomRef.current - .1))}><Minus size={16} /></button>
       <span>{scale}%</span>
-      <button aria-label="放大" onClick={() => { const v = viewerRef.current; if (v) v.currentScale = Math.min(4, v.currentScale * 1.1); }}><Plus size={16} /></button>
-      <button aria-label="适应宽度" title="适应宽度" onClick={() => { if (viewerRef.current) viewerRef.current.currentScaleValue = "page-width"; }}><Maximize2 size={16} /></button>
+      <button aria-label="放大" onClick={() => fitRef.current(Math.min(2, zoomRef.current + .1))}><Plus size={16} /></button>
+      <button aria-label="适应宽度" title="适应宽度（包括横向跨页）" onClick={() => fitRef.current()}><Maximize2 size={16} /></button>
     </nav>
   </div>;
 }
